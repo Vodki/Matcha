@@ -2,19 +2,25 @@ import React from "react";
 
 export default function Home() {
   return (
-    <div className="flex items-start justify-start min-h-screen min-w-screen p-8">
-      <div className="card bg-base-300 w-66 shadow-lg">
-        <div className="card-body">
-          <p className="text-xl font-bold">
-            Meet your <span className="text-3xl text-neutral font-extrabold">Matcha</span>:
-          </p>
-          <p className="text-xl leading-normal font-bold">
-            Brewing Connections
-          </p>
-          <p className="text-xl leading-normal font-bold">
-            One Cup at a Time
-          </p>
-        </div>
+    <div className="w-screen h-screen">
+      <div
+        className={`
+          bg-base-300 
+          pt-10 ps-6 pb-8
+          w-full
+          md:relative md:w-80 md:ms-14 md:mt-14 md:inline-block md:rounded-box md:shadow-lg
+        `}
+      >
+        <p className="text-2xl font-bold">
+          Meet your{" "}
+          <span className="text-4xl text-neutral font-extrabold">Matcha</span>:
+        </p>
+        <p className="text-2xl leading-normal font-bold">Brewing Connections</p>
+        <p className="text-2xl leading-normal font-bold">One Cup at a Time</p>
+      </div>
+      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 flex flex-col">
+        <button className="btn btn-primary text-base font-bold">Sign In</button>
+        <a className="link link-primary text-sm self-center mt-1">Sign Up</a>
       </div>
     </div>
   );

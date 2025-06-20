@@ -1,4 +1,5 @@
 import "./globals.css";
+import Image from "next/image";
 
 export default function RootLayout({
   children,
@@ -7,7 +8,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body data-theme="valentine" className="w-full h-full">{children}</body>
+      <body data-theme="valentine" className="w-full h-full relative">
+        {children}
+        <div className="absolute bottom-0 right-0 p-4 z-50">
+          <Image
+            src="/tea-cup.svg"
+            alt="Matcha Logo"
+            width={64}
+            height={64}
+            className="w-15 h-15 md:w-20 md:h-20"
+          />
+        </div>
+      </body>
     </html>
   );
 }

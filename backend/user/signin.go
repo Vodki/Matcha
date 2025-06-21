@@ -8,14 +8,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type User struct {
-	ID           int
-	Email        string
-	Username     string
-	PasswordHash string
-	FirstName    string
-	LastName     string
-}
+
 
 func CreateUser(ctx context.Context, conn *pgx.Conn, email, username, password, firstName, lastName string) (*User, error) {
 	// 1. Hash the password

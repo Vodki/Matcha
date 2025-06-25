@@ -8,7 +8,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body data-theme="valentine" className="w-full h-full relative">
+      <body data-theme="valentine" className="w-full h-full relative bg-base-200">
         {children}
         <div className="absolute bottom-0 right-0 p-4 z-50">
           <Image

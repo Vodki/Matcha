@@ -1,4 +1,4 @@
-import "./globals.css";
+import "../styles/globals.css";
 import Image from "next/image";
 
 export default function RootLayout({

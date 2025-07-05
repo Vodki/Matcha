@@ -21,9 +21,11 @@ export default function Home() {
       </div>
       <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 flex flex-col">
         <button className="btn btn-primary text-base font-bold">
-          <Link href={"/registration"}>Sign In</Link>
+          <Link href={"/sign-in"}>Sign In</Link>
         </button>
-        <a className="link link-primary text-sm self-center mt-1">Sign Up</a>
+        <button className="link link-primary text-sm self-center mt-1">
+          <Link href={"/registration"}>Sign Up</Link>
+        </button>
       </div>
     </div>
   );

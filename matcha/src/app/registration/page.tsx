@@ -1,8 +1,37 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import Link from "next/link";
 import Field from "../../utils/field";
 
 export default function RegistrationPage() {
+  const [email, setEmail] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const userNameRegex = /^[A-Za-z][A-Za-z0-9\-]*$/;
+  const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
+
+  const isEmailValid = emailRegex.test(email) && email.trim().length > 0;
+  const isUsernameValid =
+    userNameRegex.test(userName) &&
+    userName.trim().length >= 3 &&
+    userName.trim().length <= 30;
+  const isFirstNameValid = firstName.trim().length > 0;
+  const isLastNameValid = lastName.trim().length > 0;
+  const isPasswordValid =
+    passwordRegex.test(password) && password.trim().length > 0;
+
+  const isFormValid =
+    isEmailValid &&
+    isUsernameValid &&
+    isFirstNameValid &&
+    isLastNameValid &&
+    isPasswordValid;
+
   return (
     <div className="w-full min-h-screen">
       <div className="flex flex-col gap-2 items-center w-full md:max-w-md mx-auto px-2">
@@ -32,7 +61,15 @@ export default function RegistrationPage() {
                 </g>
               </svg>
             }
-            hint="Enter valid email address"
+            hint={
+              !isEmailValid && email
+                ? "Email non valide"
+                : "Enter valid email address"
+            }
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            error={!isEmailValid && email ? "Invalid email format" : ""}
+            isValid={isEmailValid}
           />
           <Field
             label="Username"
@@ -58,21 +95,41 @@ export default function RegistrationPage() {
                 </g>
               </svg>
             }
-            hint="3-30 characters: letters, numbers or hyphen (-)"
+            hint={
+              userName && !isUsernameValid
+                ? "3-30 characters, letters, numbers or hyphen (-)"
+                : "3-30 characters, letters, numbers or hyphen (-)"
+            }
+            value={userName}
+            onChange={(e) => setUserName(e.target.value)}
+            error={
+              userName && !isUsernameValid
+                ? "Username must be 3-30 characters long and can only contain letters, numbers, or hyphens."
+                : ""
+            }
+            isValid={isUsernameValid}
           />
           <Field
             label="Firstname"
             type="text"
             placeholder="Firstname"
             icon={null}
-            hint=""
+            hint={firstName === "" ? "Firstname is required" : ""}
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            error={firstName === "" ? "Firstname is required" : ""}
+            isValid={firstName.trim().length > 0}
           />
           <Field
             label="Lastname"
             type="text"
             placeholder="Lastname"
             icon={null}
-            hint=""
+            hint={lastName === "" ? "Lastname is required" : ""}
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            error={lastName === "" ? "Lastname is required" : ""}
+            isValid={lastName.trim().length > 0}
           />
           <Field
             label="Password"
@@ -103,12 +160,25 @@ export default function RegistrationPage() {
             }
             title="8+ characters, 1 lowercase, 1 uppercase, 1 number minimum"
             pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
-            hint="8+ characters, lowercase, uppercase and number"
+            hint={
+              password && !isPasswordValid
+                ? "Weak password"
+                : "8+ characters, lowercase, uppercase and number"
+            }
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={
+              password && !isPasswordValid
+                ? "Password must be at least 8 characters long and include at least one lowercase letter, one uppercase letter, and one number."
+                : ""
+            }
+            isValid={isPasswordValid}
           />
           <button
             type="submit"
             className="btn btn-primary shadow-lg font-bold
             text-lg px-8 py-3 mt-3 transition-all hover:scale-[1.03] active::scale-95 w-full"
+            disabled={!isFormValid}
           >
             <Link href={"/informations"}>Register</Link>
           </button>

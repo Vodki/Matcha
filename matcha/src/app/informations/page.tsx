@@ -24,7 +24,7 @@ export default function InformationsPage() {
               defaultValue="Woman"
               className="select flex items-center gap-2
                 px-3 py-2
-                bg-white
+                bg-primary-content
                 transition-all duration-150
                 w-full relative"
             >
@@ -40,7 +40,7 @@ export default function InformationsPage() {
               defaultValue="Men & Women"
               className="select flex items-center gap-2
                 px-3 py-2
-                bg-white
+                bg-primary-content
                 transition-all duration-150
                 w-full relative"
             >
@@ -55,7 +55,7 @@ export default function InformationsPage() {
             </legend>
             <textarea
               className="textarea flex items-center gap-2
-                px-3 py-2 bg-white transition-all duration-150
+                px-3 py-2 bg-primary-content transition-all duration-150
                 w-full relative"
               placeholder="Write something about yourself..."
             />

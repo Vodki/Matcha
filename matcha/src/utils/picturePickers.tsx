@@ -64,7 +64,7 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
             className={`relative w-24 h-24 group rounded-md border ${
               idx === profilePicIdx
                 ? "border-2 border-primary shadow-lg"
-                : "border-gray-200"
+                : "border-info-content"
             } cursor-pointer`}
           >
             {idx !== profilePicIdx ? (
@@ -91,7 +91,7 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
 
             <button
               type="button"
-              className="absolute top-1 right-1 z-10 bg-gray-800 bg-opacity-60 rounded-full text-white w-5 h-5 flex items-center justify-center opacity-80 hover:opacity-100"
+              className="absolute top-1 right-1 z-10 bg-info-content bg-opacity-60 rounded-full text-primary-content w-5 h-5 flex items-center justify-center opacity-80 hover:opacity-100"
               onClick={() => handleRemove(idx)}
               tabIndex={-1}
               aria-label="Remove photo"
@@ -109,7 +109,7 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
 
         {pictures.length < maxPictures && (
           <div
-            className="w-24 h-24 flex items-center justify-center rounded-md bg-base-200 cursor-pointer hover:bg-base-300 border border-dashed border-gray-400 text-3xl text-gray-400"
+            className="w-24 h-24 flex items-center justify-center rounded-md bg-base-200 cursor-pointer hover:bg-base-300 border border-dashed border-info-content text-3xl text-info-content"
             onClick={handleClick}
           >
             <span>+</span>

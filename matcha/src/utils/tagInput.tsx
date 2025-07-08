@@ -44,7 +44,7 @@ const TagsInput: React.FC<TagsInputProps> = ({ interests, setInterests }) => {
         Interests
       </legend>
       <div
-        className="flex flex-wrap items-center gap-2 px-2 py-2 bg-white input min-h-12 w-full"
+        className="flex flex-wrap items-center gap-2 px-2 py-2 bg-primary-content input min-h-12 w-full"
         tabIndex={-1}
         onClick={() => inputRef.current?.focus()}
       >

@@ -1,8 +1,25 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import Field from "../../utils/field";
 import Link from "next/link";
 
 export default function SignIn() {
+  const [userName, setUserName] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+
+  const userNameRegex = /^[A-Za-z][A-Za-z0-9\-]*$/;
+  const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
+
+  const isUsernameValid =
+    userNameRegex.test(userName) &&
+    userName.trim().length >= 3 &&
+    userName.trim().length <= 30;
+  const isPasswordValid =
+    passwordRegex.test(password) && password.trim().length > 0;
+
+  const isFormValid = isUsernameValid && isPasswordValid;
+
   return (
     <div className="w-full min-h-screen flex items-center justify-center">
       <div className="flex flex-col gap-2 items-center max-w-md mx-auto px-2">
@@ -12,7 +29,7 @@ export default function SignIn() {
         <div className="bg-base-100/95 shadow-lg px-6 py-8 card w-[430px] flex flex-col items-center h-auto">
           <div className="flex flex-col gap-2 w-full">
             <Field
-              label="Username"
+              label="Username *"
               type="text"
               placeholder="Username"
               pattern="[A-Za-z][A-Za-z0-9\-]*"
@@ -35,9 +52,17 @@ export default function SignIn() {
                   </g>
                 </svg>
               }
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              error={
+                userName && !isUsernameValid
+                  ? "Username must be 3-30 characters long and can only contain letters, numbers, or hyphens."
+                  : ""
+              }
+              isValid={isUsernameValid}
             />
             <Field
-              label="Password"
+              label="Password *"
               type="password"
               placeholder="Password"
               icon={
@@ -64,17 +89,36 @@ export default function SignIn() {
                 </svg>
               }
               pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={
+                password && !isPasswordValid
+                  ? "Password must be at least 8 characters long and include at least one lowercase letter, one uppercase letter, and one number."
+                  : ""
+              }
+              isValid={isPasswordValid}
             />
           </div>
+          {/*Handle sending an email to reset password*/}
           <button className="link link-primary text-sm self-center mt-2 mb-0">
-            <Link href={"/"}>Forgot password</Link>
+            <Link href={"/verification"}>Forgot password</Link>
+          </button>
+          {/*Handle first time login to set up profile* VS other times logging in*/}
+          <button
+            type="submit"
+            className="btn btn-primary shadow-lg font-bold
+            text-lg px-8 py-3 mt-3 transition-all hover:scale-[1.03] active::scale-95 w-full"
+            disabled={!isFormValid}
+          >
+            <Link href={"/informations"}>First Time Log in</Link>
           </button>
           <button
             type="submit"
             className="btn btn-primary shadow-lg font-bold
             text-lg px-8 py-3 mt-3 transition-all hover:scale-[1.03] active::scale-95 w-full"
+            disabled={!isFormValid}
           >
-            <Link href={"/informations"}>Log in</Link>
+            <Link href={"/"}>Log in</Link>
           </button>
         </div>
       </div>

@@ -4,7 +4,7 @@ type FieldProps = {
   label: string;
   icon?: ReactNode;
   hint?: string;
-  error: string;
+  error?: string;
   isValid?: boolean;
 } & InputHTMLAttributes<HTMLInputElement>;
 

@@ -56,7 +56,7 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
 
   return (
     <div className="flex flex-col items-start w-full">
-      <h2 className="text-lg font-semibold mb-2">Photos</h2>
+      <h2 className="text-sm font-semibold mb-2 text-neutral">Photos *</h2>
       <div className="flex gap-2 mb-1 flex-wrap">
         {pictures.map((file, idx) => (
           <div
@@ -78,6 +78,8 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
                   className="w-full h-full object-cover rounded-md"
                   onClick={() => handleSetProfile(idx)}
                   tabIndex={0}
+                  width={20}
+                  height={20}
                 />
               </div>
             ) : (
@@ -86,6 +88,8 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
                 alt={`pic-${idx}`}
                 className="w-full h-full object-cover rounded-md"
                 tabIndex={0}
+                width={20}
+                height={20}
               />
             )}
 

@@ -41,17 +41,17 @@ const TagsInput: React.FC<TagsInputProps> = ({ interests, setInterests }) => {
   return (
     <fieldset className="w-full">
       <legend className="text-sm font-semibold text-neutral pb-1">
-        Interests
+        Interests *
       </legend>
       <div
-        className="flex flex-wrap items-center gap-2 px-2 py-2 bg-primary-content input min-h-12 w-full"
+        className="flex flex-wrap items-start gap-2 px-2 py-2 bg-primary-content input w-full min-h-[64px] max-h-[192px] transition-all duration-300 ease-in-out overflow-y-auto"
         tabIndex={-1}
         onClick={() => inputRef.current?.focus()}
       >
         {interests.map((tag, idx) => (
           <div
             key={tag + idx}
-            className="badge badge-primary gap-1 text-xs font-semibold"
+            className="badge badge-primary gap-1 text-xs font-semibold mb-1 flex-shrink-0"
           >
             #{tag}
             <button
@@ -73,7 +73,7 @@ const TagsInput: React.FC<TagsInputProps> = ({ interests, setInterests }) => {
           placeholder={
             interests.length === 0 ? `Add interest and press Enter` : ""
           }
-          className="bg-transparent outline-none border-none text-sm flex-1 min-w-[100px]"
+          className="bg-transparent outline-none border-none text-sm flex-1 min-w-[100px] sticky top-0"
         />
       </div>
     </fieldset>

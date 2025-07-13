@@ -40,7 +40,7 @@ export default function RegistrationPage() {
         </div>
         <div className="bg-base-100/95 shadow-lg w-screen px-6 py-8 overflow-y-auto md:card md:w-[430px] flex flex-col items-center gap-4 md:gap-6 h-[75vh] md:h-auto md:overflow-hidden">
           <Field
-            label="E-mail"
+            label="E-mail *"
             type="email"
             placeholder="mail@site.com"
             icon={
@@ -72,7 +72,7 @@ export default function RegistrationPage() {
             isValid={isEmailValid}
           />
           <Field
-            label="Username"
+            label="Username *"
             type="text"
             placeholder="Username"
             pattern="[A-Za-z][A-Za-z0-9\-]*"
@@ -110,7 +110,7 @@ export default function RegistrationPage() {
             isValid={isUsernameValid}
           />
           <Field
-            label="Firstname"
+            label="Firstname *"
             type="text"
             placeholder="Firstname"
             icon={null}
@@ -121,7 +121,7 @@ export default function RegistrationPage() {
             isValid={firstName.trim().length > 0}
           />
           <Field
-            label="Lastname"
+            label="Lastname *"
             type="text"
             placeholder="Lastname"
             icon={null}
@@ -132,7 +132,7 @@ export default function RegistrationPage() {
             isValid={lastName.trim().length > 0}
           />
           <Field
-            label="Password"
+            label="Password *"
             type="password"
             placeholder="Password"
             icon={
@@ -174,13 +174,14 @@ export default function RegistrationPage() {
             }
             isValid={isPasswordValid}
           />
+          {/*Will need to handle sending the verification email from there once the backend is done*/}
           <button
             type="submit"
             className="btn btn-primary shadow-lg font-bold
             text-lg px-8 py-3 mt-3 transition-all hover:scale-[1.03] active::scale-95 w-full"
             disabled={!isFormValid}
           >
-            <Link href={"/informations"}>Register</Link>
+            <Link href={"/verification"}>Register</Link>
           </button>
         </div>
       </div>

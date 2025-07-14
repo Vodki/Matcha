@@ -3,9 +3,14 @@ import React, { useState, useRef, ChangeEvent, KeyboardEvent } from "react";
 interface TagsInputProps {
   interests: string[];
   setInterests: React.Dispatch<React.SetStateAction<string[]>>;
+  editMode?: boolean;
 }
 
-const TagsInput: React.FC<TagsInputProps> = ({ interests, setInterests }) => {
+const TagsInput: React.FC<TagsInputProps> = ({
+  interests,
+  setInterests,
+  editMode,
+}) => {
   const [input, setInput] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -40,9 +45,11 @@ const TagsInput: React.FC<TagsInputProps> = ({ interests, setInterests }) => {
 
   return (
     <fieldset className="w-full">
-      <legend className="text-sm font-semibold text-neutral pb-1">
-        Interests *
-      </legend>
+      {!editMode && (
+        <legend className="text-sm font-semibold text-neutral pb-1">
+          Interests *
+        </legend>
+      )}
       <div
         className="flex flex-wrap items-start gap-2 px-2 py-2 bg-primary-content input w-full min-h-[64px] max-h-[192px] transition-all duration-300 ease-in-out overflow-y-auto"
         tabIndex={-1}

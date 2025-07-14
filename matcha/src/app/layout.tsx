@@ -10,7 +10,7 @@ export default function RootLayout({
     <html lang="en">
       <body data-theme="valentine" className="w-full h-full relative bg-base-200">
         {children}
-        <div className="absolute bottom-0 right-0 p-4 z-50">
+        <div className="fixed bottom-0 right-0 p-4 z-50">
           <Image
             src="/tea-cup.svg"
             alt="Matcha Logo"

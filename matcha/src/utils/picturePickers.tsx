@@ -9,6 +9,8 @@ interface PicturesPickerProps {
   profilePicIdx: number;
   setProfilePicIdx: React.Dispatch<React.SetStateAction<number>>;
   maxPictures?: number;
+  displayMode?: boolean;
+  removeTitle?: boolean;
 }
 
 const PicturesPicker: React.FC<PicturesPickerProps> = ({
@@ -17,6 +19,9 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
   profilePicIdx,
   setProfilePicIdx,
   maxPictures = 5,
+  displayMode,
+  removeTitle,
+
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,7 +61,9 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
 
   return (
     <div className="flex flex-col items-start w-full">
-      <h2 className="text-sm font-semibold mb-2 text-neutral">Photos *</h2>
+      {!removeTitle && (
+        <h2 className="text-sm font-semibold mb-2 text-neutral">Photos *</h2>
+      )}
       <div className="flex gap-2 mb-1 flex-wrap">
         {pictures.map((file, idx) => (
           <div
@@ -93,7 +100,7 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
               />
             )}
 
-            <button
+            {!displayMode && <button
               type="button"
               className="absolute top-1 right-1 z-10 bg-info-content bg-opacity-60 rounded-full text-primary-content w-5 h-5 flex items-center justify-center opacity-80 hover:opacity-100"
               onClick={() => handleRemove(idx)}
@@ -101,7 +108,7 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
               aria-label="Remove photo"
             >
               ×
-            </button>
+            </button>}
 
             {idx === profilePicIdx && (
               <div className="absolute bottom-0 left-0 right-0 bg-primary text-primary-content text-xs font-semibold py-1 rounded-b-xs text-center animate-pulse">
@@ -111,7 +118,7 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
           </div>
         ))}
 
-        {pictures.length < maxPictures && (
+        {!displayMode && pictures.length < maxPictures && (
           <div
             className="w-24 h-24 flex items-center justify-center rounded-md bg-base-200 cursor-pointer hover:bg-base-300 border border-dashed border-info-content text-3xl text-info-content"
             onClick={handleClick}
@@ -129,9 +136,9 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
         )}
       </div>
 
-      <div className="text-xs text-neutral select-none">
+      {!displayMode && <div className="text-xs text-neutral select-none">
         {pictures.length}/{maxPictures} pictures selected
-      </div>
+      </div>}
     </div>
   );
 };

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import TagsInput from "../../utils/tagInput";
 import PicturesPicker from "../../utils/picturePickers";
+import Link from "next/link";
 
 export default function InformationsPage() {
   const [interests, setInterests] = useState<string[]>([]);
@@ -86,7 +87,7 @@ export default function InformationsPage() {
            text-lg px-8 py-3 mt-3 transition-all hover:scale-[1.03] active::scale-95 w-full"
             disabled={!isFormValid}
           >
-            Submit
+            <Link href={"/home"}>Submit</Link>
           </button>
         </div>
       </div>

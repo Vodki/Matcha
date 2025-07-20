@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import TagsInput from "../../utils/tagInput";
-import PicturesPicker from "../../utils/picturePickers";
+import TagsInput from "../../utils/TagInput";
+import PicturesPicker from "../../utils/PicturePickers";
 import Link from "next/link";
 
 export default function InformationsPage() {

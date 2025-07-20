@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import Field from "../../utils/field";
+import Field from "../../utils/Field";
 
 export default function RegistrationPage() {
   const [email, setEmail] = useState<string>("");

@@ -10,6 +10,7 @@ interface ProfileSectionProps {
   onSave: () => void;
   onCancel: () => void;
   isDisabled: boolean;
+  isValid?: boolean;
 }
 
 export default function ProfileSection({
@@ -21,6 +22,7 @@ export default function ProfileSection({
   onSave,
   onCancel,
   isDisabled,
+  isValid,
 }: ProfileSectionProps) {
   return (
     <li className="list-row flex items-center justify-between py-3">
@@ -30,7 +32,11 @@ export default function ProfileSection({
       </div>
       <div className="flex-shrink-0">
         {isEditing ? (
-          <EditActionButtons onSave={onSave} onCancel={onCancel} />
+          <EditActionButtons
+            onSave={onSave}
+            onCancel={onCancel}
+            isValid={isValid}
+          />
         ) : (
           <button
             className="btn btn-square btn-ghost"

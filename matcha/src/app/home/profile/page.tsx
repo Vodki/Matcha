@@ -54,7 +54,6 @@ export default function Profile() {
     setEditMode(0);
   };
 
-  // Préférences Sexuelles
   const handleEditSexualPreferences = () => {
     setDraftSexualPreferences(sexualPreferences);
     setEditMode(2);
@@ -62,13 +61,11 @@ export default function Profile() {
   const handleSaveSexualPreferences = () => {
     setSexualPreferences(draftSexualPreferences);
     setEditMode(0);
-    // TODO: Appel API
   };
   const handleCancelSexualPreferences = () => {
     setEditMode(0);
   };
 
-  // Biographie
   const handleEditBiography = () => {
     setDraftBiography(biography);
     setEditMode(3);
@@ -76,29 +73,25 @@ export default function Profile() {
   const handleSaveBiography = () => {
     setBiography(draftBiography);
     setEditMode(0);
-    // TODO: Appel API
   };
   const handleCancelBiography = () => {
     setEditMode(0);
   };
 
-  // Centres d'intérêt
   const handleEditInterests = () => {
-    setDraftInterests([...interests]); // Copie profonde pour les tableaux
+    setDraftInterests([...interests]);
     setEditMode(4);
   };
   const handleSaveInterests = () => {
     setInterests(draftInterests);
     setEditMode(0);
-    // TODO: Appel API
   };
   const handleCancelInterests = () => {
     setEditMode(0);
   };
 
-  // Photos
   const handleEditPictures = () => {
-    setDraftPictures([...pictures]); // Copie profonde
+    setDraftPictures([...pictures]);
     setDraftProfilePicIdx(profilePicIdx);
     setEditMode(5);
   };
@@ -106,62 +99,42 @@ export default function Profile() {
     setPictures(draftPictures);
     setProfilePicIdx(draftProfilePicIdx);
     setEditMode(0);
-    // TODO: Appel API
   };
   const handleCancelPictures = () => {
     setEditMode(0);
   };
 
-  // Email
   const handleEditEmail = () => {
     setDraftEmail(email);
     setEditMode(6);
   };
   const handleSaveEmail = () => {
-    if (isDraftEmailValid) {
-      // Vérifie la validité avant de sauvegarder
-      setEmail(draftEmail);
-      setEditMode(0);
-      // TODO: Appel API
-    } else {
-      alert("Email non valide, impossible de sauvegarder.");
-    }
+    setEmail(draftEmail);
+    setEditMode(0);
   };
   const handleCancelEmail = () => {
     setEditMode(0);
   };
 
-  // Prénom
   const handleEditFirstName = () => {
     setDraftFirstName(firstName);
     setEditMode(7);
   };
   const handleSaveFirstName = () => {
-    if (isDraftFirstNameValid) {
-      setFirstName(draftFirstName);
-      setEditMode(0);
-      // TODO: Appel API
-    } else {
-      alert("Prénom requis, impossible de sauvegarder.");
-    }
+    setFirstName(draftFirstName);
+    setEditMode(0);
   };
   const handleCancelFirstName = () => {
     setEditMode(0);
   };
 
-  // Nom
   const handleEditLastName = () => {
     setDraftLastName(lastName);
     setEditMode(8);
   };
   const handleSaveLastName = () => {
-    if (isDraftLastNameValid) {
-      setLastName(draftLastName);
-      setEditMode(0);
-      // TODO: Appel API
-    } else {
-      alert("Nom requis, impossible de sauvegarder.");
-    }
+    setLastName(draftLastName);
+    setEditMode(0);
   };
   const handleCancelLastName = () => {
     setEditMode(0);
@@ -275,6 +248,7 @@ export default function Profile() {
             onSave={handleSaveEmail}
             onCancel={handleCancelEmail}
             isDisabled={editMode !== 0 && editMode !== 6}
+            isValid={!isDraftEmailValid}
           />
           <ProfileSection
             label="Firstname"
@@ -291,6 +265,7 @@ export default function Profile() {
             onSave={handleSaveFirstName}
             onCancel={handleCancelFirstName}
             isDisabled={editMode !== 0 && editMode !== 7}
+            isValid={!isDraftFirstNameValid}
           />
           <ProfileSection
             label="Lastname"
@@ -307,6 +282,7 @@ export default function Profile() {
             onSave={handleSaveLastName}
             onCancel={handleCancelLastName}
             isDisabled={editMode !== 0 && editMode !== 8}
+            isValid={!isDraftLastNameValid}
           />
         </ul>
       </div>

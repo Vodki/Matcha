@@ -3,15 +3,21 @@ import React from "react";
 interface EditActionButtonsProps {
   onSave: () => void;
   onCancel: () => void;
+  isValid?: boolean;
 }
 
 export default function EditActionButtons({
   onSave,
   onCancel,
+  isValid,
 }: EditActionButtonsProps) {
   return (
     <>
-      <button className="btn btn-square btn-ghost" onClick={onSave}>
+      <button
+        className="btn btn-square btn-ghost"
+        onClick={onSave}
+        disabled={isValid}
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"

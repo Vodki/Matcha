@@ -76,5 +76,14 @@ func loginHandler(c *gin.Context, db *sql.DB) {
 		return
 	}
 
+	sessionToken := utils.GenerateToken()
+
+	_, err = db.Exec("UPDATE users SET session_token = $1 WHERE username = $2", sessionToken, username)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Error updating session token", "details": err.Error()})
+		return
+	}
+
+	c.SetCookie("session_token", sessionToken, 3600*24, "/", "", false, true)
 	c.JSON(200, gin.H{"message": "Login successful"})
 }

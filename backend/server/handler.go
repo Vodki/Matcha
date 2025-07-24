@@ -8,11 +8,11 @@ import (
 )
 
 func registerHandler(c *gin.Context, db *sql.DB) {
-	email := c.PostForm("email")
+	username := c.PostForm("username")
 	password := c.PostForm("password")
+	email := c.PostForm("email")
 	lastName := c.PostForm("last_name")
 	firstName := c.PostForm("first_name")
-	username := c.PostForm("username")
 
 	var exists bool
 	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1 OR email = $2)", username, email).Scan(&exists)
@@ -50,5 +50,31 @@ func registerHandler(c *gin.Context, db *sql.DB) {
 }
 
 func loginHandler(c *gin.Context, db *sql.DB) {
-	// Handler logic for user login
+	username := c.PostForm("username")
+	password := c.PostForm("password")
+
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", username).Scan(&exists)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Database error while checking user existence", "details": err.Error()})
+		return
+	}
+	if !exists {
+		c.JSON(400, gin.H{"error": "Username does not exist"})
+		return
+	}
+
+	var storedHashedPassword string
+	err = db.QueryRow("SELECT password_hash FROM users WHERE username = $1", username).Scan(&storedHashedPassword)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Database error while retrieving user password", "details": err.Error()})
+		return
+	}
+
+	if !utils.CheckPasswordHash(password, storedHashedPassword) {
+		c.JSON(400, gin.H{"error": "Invalid password"})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Login successful"})
 }

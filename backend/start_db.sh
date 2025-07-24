@@ -1,3 +1,3 @@
 #!/bin/sh
-docker start pg-container
+docker start matcha_db
 docker ps

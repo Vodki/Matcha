@@ -45,6 +45,8 @@ func registerHandler(c *gin.Context, db *sql.DB) {
 		return
 	}
 
+	utils.SendVerificationEmail(email, db)
+
 	c.JSON(200, gin.H{"message": "User registered successfully"})
 
 }
@@ -76,6 +78,17 @@ func loginHandler(c *gin.Context, db *sql.DB) {
 		return
 	}
 
+	var isVerified bool
+	err = db.QueryRow("SELECT verified FROM users WHERE username = $1", username).Scan(&isVerified)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Database error while checking verification status", "details": err.Error()})
+		return
+	}
+	if !isVerified {
+		c.JSON(403, gin.H{"error": "User account is not verified"})
+		return
+	}
+
 	sessionToken := utils.GenerateToken()
 
 	_, err = db.Exec("UPDATE users SET session_token = $1 WHERE username = $2", sessionToken, username)
@@ -86,4 +99,23 @@ func loginHandler(c *gin.Context, db *sql.DB) {
 
 	c.SetCookie("session_token", sessionToken, 3600*24, "/", "", false, true)
 	c.JSON(200, gin.H{"message": "Login successful"})
+}
+
+func verifyHandler(c *gin.Context, db *sql.DB) {
+	token := c.Query("token")
+
+	var email string
+	err := db.QueryRow("SELECT email FROM users WHERE verification_token = $1", token).Scan(&email)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Invalid or expired verification token"})
+		return
+	}
+
+	_, err = db.Exec("UPDATE users SET verified = TRUE, verification_token = NULL WHERE email = $1", email)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Error updating user verification status", "details": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Email verified successfully"})
 }

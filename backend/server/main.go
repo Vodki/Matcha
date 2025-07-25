@@ -18,5 +18,8 @@ func main() {
 	router.POST("/login", func(c *gin.Context) {
 		loginHandler(c, db)
 	})
+	router.GET("/verify", func(c *gin.Context) {
+		verifyHandler(c, db)
+	})
 	router.Run(":8080")
 }

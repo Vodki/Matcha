@@ -18,6 +18,9 @@ func main() {
 	router.POST("/login", func(c *gin.Context) {
 		loginHandler(c, db)
 	})
+	router.POST("/logout", func(c *gin.Context) {
+		logoutHandler(c, db)
+	})
 	router.GET("/verify", func(c *gin.Context) {
 		verifyHandler(c, db)
 	})

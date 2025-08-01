@@ -119,3 +119,20 @@ func verifyHandler(c *gin.Context, db *sql.DB) {
 
 	c.JSON(200, gin.H{"message": "Email verified successfully"})
 }
+
+func logoutHandler(c *gin.Context, db *sql.DB) {
+	sessionToken, err := c.Cookie("session_token")
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Not logged in"})
+		return
+	}
+
+	_, err = db.Exec("UPDATE users SET session_token = NULL WHERE session_token = $1", sessionToken)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Error logging out", "details": err.Error()})
+		return
+	}
+
+	c.SetCookie("session_token", "", -1, "/", "", false, true)
+	c.JSON(200, gin.H{"message": "Logout successful"})
+}

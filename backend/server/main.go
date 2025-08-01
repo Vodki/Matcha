@@ -12,17 +12,6 @@ func main() {
 	defer db.Close()
 
 	router := gin.Default()
-	router.POST("/register", func(c *gin.Context) {
-		registerHandler(c, db)
-	})
-	router.POST("/login", func(c *gin.Context) {
-		loginHandler(c, db)
-	})
-	router.POST("/logout", func(c *gin.Context) {
-		logoutHandler(c, db)
-	})
-	router.GET("/verify", func(c *gin.Context) {
-		verifyHandler(c, db)
-	})
+	RegisterRoutes(router, db)
 	router.Run(":8080")
 }

@@ -47,6 +47,7 @@ export default function GeneralInformations() {
     choice: boolean;
     localisation: string;
   }>({ choice: false, localisation: "" });
+  const [locationError, setLocationError] = useState<string>("");
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isDraftEmailValid =
@@ -80,19 +81,23 @@ export default function GeneralInformations() {
           });
         },
         (error) => {
-          console.error("Error getting current location: ", error);
           if (error.code === error.PERMISSION_DENIED) {
-            console.error("User denied geolocation permission");
+            setLocationError(
+              "Location access was denied. To use this feature, please enable location permissions in your browser settings."
+            );
           } else if (error.code === error.POSITION_UNAVAILABLE) {
-            console.error("Geolocation information is unavailable");
+            setLocationError(
+              "Your location information is currently unavailable."
+            );
           } else if (error.code === error.TIMEOUT) {
-            console.error("Geolocation request timed out");
+            setLocationError("The request to get your location timed out.");
           }
+          setGeolocalisation({ choice: false, localisation: "" });
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
+          timeout: 20000,
+          maximumAge: 5000,
         }
       );
     }
@@ -387,12 +392,15 @@ export default function GeneralInformations() {
                   type="radio"
                   name="gps-radio"
                   className="radio"
-                  defaultChecked={draftGeolocalisation.choice}
+                  checked={geolocalisation.choice}
+                  onChange={() =>
+                    setGeolocalisation((prev) => ({ ...prev, choice: true }))
+                  }
+                  disabled={
+                    !geolocalisation.choice && locationError.length !== 0
+                  }
                   onClick={() =>
-                    setDraftGeolocalisation({
-                      choice: true,
-                      localisation: "",
-                    })
+                    setGeolocalisation((prev) => ({ ...prev, choice: true }))
                   }
                 />
                 <p className="ms-4">Yes</p>
@@ -402,10 +410,13 @@ export default function GeneralInformations() {
                   type="radio"
                   name="gps-radio"
                   className="radio"
-                  defaultChecked={!draftGeolocalisation.choice}
-                  onClick={() =>
-                    setDraftGeolocalisation({ choice: false, localisation: "" })
+                  checked={!geolocalisation.choice}
+                  onChange={() =>
+                    setGeolocalisation({ choice: false, localisation: "" })
                   }
+                  onClick={() => {
+                    setGeolocalisation({ choice: false, localisation: "" });
+                  }}
                 />
                 <p className="ms-4">No</p>
               </div>
@@ -437,6 +448,36 @@ export default function GeneralInformations() {
           isDisabled={editMode !== 0 && editMode !== 9}
         />
       </ul>
+      <div className="toast toast-bottom toast-center z-50">
+        {locationError && (
+          <div className="alert alert-error shadow-lg">
+            <div className="flex-1">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>{locationError}</span>
+            </div>
+            <div className="flex-none">
+              <button
+                className="btn btn-sm btn-ghost"
+                onClick={() => setLocationError("")}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 }

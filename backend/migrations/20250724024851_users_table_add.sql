@@ -1,3 +1,5 @@
+-- +goose Up
+-- +goose StatementBegin
 CREATE TABLE users (
     id            SERIAL PRIMARY KEY,
     email         TEXT UNIQUE NOT NULL,
@@ -12,3 +14,9 @@ CREATE TABLE users (
     bio           TEXT,
     avatar_url    TEXT
 );
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE IF EXISTS users;
+-- +goose StatementEnd

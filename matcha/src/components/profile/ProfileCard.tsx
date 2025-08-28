@@ -18,7 +18,7 @@ export default function ProfileCard({
   return (
     <div className="card card-compact bg-base-100 shadow-md">
       <ImageGallery images={profile.images} name={name} />
-      <div className="card-body">
+      <div className="card-body min-h-75">
         <h2 className="card-title">{name}</h2>
         <p className="text-sm opacity-80">
           {profile.gender}, {profile.preferences}

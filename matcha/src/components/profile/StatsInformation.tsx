@@ -1,72 +1,42 @@
 "use client";
 
-import React, { JSX } from "react";
+import React from "react";
 import type { Profile } from "../types/profile";
-import ProfileCard from "./ProfileCard";
-import ProfileNav from "./ProfileNav";
+import {
+  exampleProfiles,
+  profilesThatLiked,
+} from "../dataExample/profile.example";
+import FameRating from "./FameRating";
+import ProfileCarousel from "./ProfileCarousel";
 
 type StatsInformationProps = {
-  profiles: Profile[];
-  className?: string;
   onSeeProfile?: (profile: Profile) => void;
 };
 
 export default function StatsInformation({
-  profiles,
-  className = "w-full md:w-1/2",
   onSeeProfile,
-}: StatsInformationProps): JSX.Element {
-  const [active, setActive] = React.useState<number>(0);
-  const count = profiles.length;
-
-  const prevProfile = React.useCallback(
-    () => setActive((v) => (v - 1 + count) % count),
-    [count]
-  );
-  const nextProfile = React.useCallback(
-    () => setActive((v) => (v + 1) % count),
-    [count]
-  );
-
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") prevProfile();
-      if (e.key === "ArrowRight") nextProfile();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [prevProfile, nextProfile]);
-
-  if (count === 0) {
-    return (
-      <div className={`relative mt-4 ${className}`}>
-        <div className="alert">
-          <span>Aucun profil à afficher.</span>
-        </div>
-      </div>
-    );
-  }
-
-  const profile = profiles[active];
+}: StatsInformationProps) {
+  const viewsCount = exampleProfiles.length;
+  const likesCount = profilesThatLiked.length;
 
   return (
-    <>
-      <div className="mt-10 md:mt-0 text-xl font-extrabold">✨ Stats ✨</div>
-      <div className="mt-5 ms-5 text-sm font-semibold">
-        Who saw your profile 👀
-      </div>
-
-      <div className={`relative mt-4 ${className}`}>
-        <ProfileNav onPrev={prevProfile} onNext={nextProfile} />
-        <ProfileCard
-          key={profile.id}
-          profile={profile}
+    <section className="min-w-0">
+      <h2 className="text-xl font-semibold">✨ Stats ✨</h2>
+      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 items-stretch">
+        <ProfileCarousel
+          title="Who saw your profile 👀"
+          profiles={exampleProfiles}
           onSeeProfile={onSeeProfile}
         />
-        <div className="mt-3 text-center text-sm opacity-70">
-          {active + 1} / {count}
-        </div>
+        <ProfileCarousel
+          title="Who liked your profile"
+          profiles={profilesThatLiked}
+          onSeeProfile={onSeeProfile}
+        />
       </div>
-    </>
+      <div className="mt-4">
+        <FameRating views={viewsCount} likes={likesCount} />
+      </div>
+    </section>
   );
 }

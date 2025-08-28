@@ -2,7 +2,6 @@
 import React from "react";
 import StatsInformation from "../../../components/profile/StatsInformation";
 import GeneralInformations from "../../../components/profile/GeneralInformations";
-import { exampleProfiles } from "../../../components/dataExample/profile.example";
 
 export default function Profile() {
   return (
@@ -13,7 +12,7 @@ export default function Profile() {
           <GeneralInformations />
         </div>
         <div className="flex-1 min-w-0">
-          <StatsInformation profiles={exampleProfiles} />
+          <StatsInformation />
         </div>
       </div>
     </div>

@@ -9,6 +9,7 @@ import BiographyEditor from "./editors/BiographyEditor";
 import EmailEditor from "./editors/EmailEditor";
 import FirstnameEditor from "./editors/FirstnameEditor";
 import LastnameEditor from "./editors/LastnameEditor";
+import BirthdateEditor from "./editors/BirthdateEditor";
 
 export default function GeneralInformations() {
   const [editMode, setEditMode] = useState<number>(0);
@@ -32,6 +33,9 @@ export default function GeneralInformations() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [birthdate, setBirthdate] = useState<Date | null>(
+    new Date("2000-05-04")
+  );
 
   const [draftEmail, setDraftEmail] = useState<string>("");
   const [draftFirstName, setDraftFirstName] = useState<string>("");
@@ -48,12 +52,31 @@ export default function GeneralInformations() {
     localisation: string;
   }>({ choice: false, localisation: "" });
   const [locationError, setLocationError] = useState<string>("");
+  const [draftBirthdate, setDraftBirthdate] = useState<Date | null>(null);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isDraftEmailValid =
     emailRegex.test(draftEmail) && draftEmail.trim().length > 0;
   const isDraftFirstNameValid = draftFirstName.trim().length > 0;
   const isDraftLastNameValid = draftLastName.trim().length > 0;
+  const isDraftBirthdateValid = (() => {
+    if (!draftBirthdate) return false;
+    const today = new Date();
+    const adult = new Date(
+      today.getFullYear() - 18,
+      today.getMonth(),
+      today.getDate()
+    );
+    return draftBirthdate <= adult && draftBirthdate >= new Date(1900, 0, 1);
+  })();
+
+  function formatDateFR(d: Date | null) {
+    if (!d) return "Not set";
+    const dd = d.getDate().toString().padStart(2, "0");
+    const mm = (d.getMonth() + 1).toString().padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
 
   useEffect(() => {
     if (draftGeolocalisation.choice) {
@@ -238,6 +261,18 @@ export default function GeneralInformations() {
     setEditMode(0);
   };
 
+  const handleEditBirthdate = () => {
+    setDraftBirthdate(birthdate);
+    setEditMode(10);
+  };
+  const handleSaveBirthdate = () => {
+    if (isDraftBirthdateValid) {
+      setBirthdate(draftBirthdate);
+      setEditMode(0);
+    }
+  };
+  const handleCancelBirthdate = () => setEditMode(0);
+
   return (
     <>
       <div className="mt-10 md:mt-0 text-xl font-extrabold">Informations</div>
@@ -377,6 +412,24 @@ export default function GeneralInformations() {
           onCancel={handleCancelLastName}
           isDisabled={editMode !== 0 && editMode !== 8}
           isValid={!isDraftLastNameValid}
+        />
+        <ProfileSection
+          label="Birthdate"
+          displayValue={formatDateFR(birthdate)}
+          editorComponent={
+            <BirthdateEditor
+              value={draftBirthdate}
+              onChange={setDraftBirthdate}
+              minYear={1900}
+              required
+            />
+          }
+          isEditing={editMode === 10}
+          onEditClick={handleEditBirthdate}
+          onSave={handleSaveBirthdate}
+          onCancel={handleCancelBirthdate}
+          isDisabled={editMode !== 0 && editMode !== 10}
+          isValid={!isDraftBirthdateValid}
         />
         <ProfileSection
           label="Geolocalisation"

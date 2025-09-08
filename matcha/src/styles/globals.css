@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-day-picker/style.css";
 @plugin "daisyui";
 
 @plugin "daisyui/theme" {
@@ -34,4 +35,37 @@
   --border: 1px;
   --depth: 0;
   --noise: 0;
+}
+
+[data-theme="valentine"] .rdp {
+  --rdp-accent-color: hsl(var(--p));
+  --rdp-accent-background-color: hsla(var(--p) / .15);
+  --rdp-background-color: hsl(var(--b1));
+  --rdp-color: hsl(var(--bc));
+  --rdp-hover-color: hsl(var(--bc));
+  --rdp-outline: 2px solid hsl(var(--p));
+  --rdp-outline-selected: 2px solid hsl(var(--p));
+  --rdp-shadow: 0 6px 20px hsla(0 0% 0% / .15);
+  --rdp-disabled-color: hsla(var(--bc) / .3);
+  --rdp-muted-color: hsla(var(--bc) / .6);
+}
+
+.rdp {
+  border-radius: var(--radius-box, 1rem);
+}
+
+[data-theme="valentine"] .rdp .rdp-nav {
+  display: flex;
+  gap: 0.25rem;
+}
+[data-theme="valentine"] .rdp .rdp-nav_button {
+  color: hsl(var(--p));
+  border-radius: var(--rounded-btn, 0.5rem);
+}
+[data-theme="valentine"] .rdp .rdp-nav_button:hover {
+  background: hsla(var(--p) / .10);
+}
+
+[data-theme="valentine"] .rdp .rdp-dropdowns {
+  padding-right: 3rem;
 }

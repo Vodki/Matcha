@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Field from "../../utils/Field";
+import BirthdatePicker from "../../components/BirthdatePicker";
+import { parseISO, subYears, isAfter } from "date-fns";
 
 export default function RegistrationPage() {
   const [email, setEmail] = useState<string>("");
@@ -10,6 +12,13 @@ export default function RegistrationPage() {
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [birthdate, setBirthdate] = useState<string>("");
+
+  const isAdult = React.useMemo(() => {
+    if (!birthdate) return false;
+    const latest = subYears(new Date(), 18);
+    return !isAfter(parseISO(birthdate), latest);
+  }, [birthdate]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const userNameRegex = /^[A-Za-z][A-Za-z0-9\-]*$/;
@@ -24,13 +33,15 @@ export default function RegistrationPage() {
   const isLastNameValid = lastName.trim().length > 0;
   const isPasswordValid =
     passwordRegex.test(password) && password.trim().length > 0;
+  const isBirthdateValid = birthdate !== "" && isAdult;
 
   const isFormValid =
     isEmailValid &&
     isUsernameValid &&
     isFirstNameValid &&
     isLastNameValid &&
-    isPasswordValid;
+    isPasswordValid &&
+    isBirthdateValid;
 
   return (
     <div className="w-full min-h-screen">
@@ -130,6 +141,19 @@ export default function RegistrationPage() {
             onChange={(e) => setLastName(e.target.value)}
             error={lastName === "" ? "Lastname is required" : ""}
             isValid={lastName.trim().length > 0}
+          />
+          <BirthdatePicker
+            value={birthdate}
+            onChange={setBirthdate}
+            label="Date of birth"
+            minYear={1900}
+            minAge={18}
+            required
+            error={
+              birthdate && !isAdult
+                ? "You must be at least 18 years old."
+                : undefined
+            }
           />
           <Field
             label="Password *"

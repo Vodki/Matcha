@@ -9,7 +9,7 @@ type FameRatingProps = {
   className?: string;
 };
 
-function computeLikeRate(views: number, likes: number, smoothing = true) {
+function computeLikeRate(views: number, likes: number) {
   if (views <= 0 && likes <= 0) return 0;
   const num = likes / views;
   if (num < 0 || isNaN(num)) return 0;
@@ -26,14 +26,12 @@ function labelForRate(rate: number) {
 export default function FameRating({
   views,
   likes,
-  smoothing = true,
   className = "",
 }: FameRatingProps) {
-  const likeRate = computeLikeRate(views, likes, smoothing);
+  const likeRate = computeLikeRate(views, likes);
   const { label, color } = labelForRate(likeRate);
 
   const percentage = Math.round(likeRate * 100);
-  const vlr = likes > 0 ? views / likes : Infinity;
   return (
     <section
       className={`rounded-box bg-base-100 shadow-sm ring-1 ring-base-200/50 p-4 sm:p-5 ${className}`}

@@ -1,3 +1,9 @@
+export type Location = {
+  city: string;
+  country?: string;
+  lat: number;
+  lng: number;
+};
 export interface Profile {
   id: string;
   firstName: string;
@@ -7,4 +13,7 @@ export interface Profile {
   preferences: string;
   bio: string;
   interests: string[];
+  birthdate: Date;
+  fameRating: number;
+  location?: Location;
 }

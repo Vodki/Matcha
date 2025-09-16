@@ -16,6 +16,8 @@ export const exampleProfiles: Profile[] = [
     preferences: "likes men and women",
     bio: "I have 3 cats.",
     interests: ["#cats", "#hiking", "#running"],
+    birthdate: new Date(1995, 4, 15),
+    fameRating: 80,
   },
   {
     id: "user2",
@@ -32,6 +34,8 @@ export const exampleProfiles: Profile[] = [
     preferences: "likes women",
     bio: "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium...",
     interests: ["#coding", "#running"],
+    birthdate: new Date(1998, 10, 30),
+    fameRating: 65,
   },
   {
     id: "user3",
@@ -46,6 +50,8 @@ export const exampleProfiles: Profile[] = [
     preferences: "likes men",
     bio: "Product designer from Lyon. Into ceramics, climbing, and weekend markets.",
     interests: ["#design", "#ceramics", "#climbing", "#markets"],
+    birthdate: new Date(1996, 6, 22),
+    fameRating: 75,
   },
   {
     id: "user4",
@@ -61,6 +67,8 @@ export const exampleProfiles: Profile[] = [
     preferences: "likes men and women",
     bio: "Data analyst who loves board games, long runs, and cooking Levantine dishes.",
     interests: ["#running", "#boardgames", "#cooking", "#data"],
+    birthdate: new Date(1992, 2, 10),
+    fameRating: 90,
   },
   {
     id: "user5",
@@ -74,6 +82,8 @@ export const exampleProfiles: Profile[] = [
     preferences: "likes women",
     bio: "Frontend dev, bikepacking on weekends, and obsessed with film photography.",
     interests: ["#frontend", "#bikepacking", "#filmphotography"],
+    birthdate: new Date(1994, 11, 5),
+    fameRating: 55,
   },
   {
     id: "user6",
@@ -88,6 +98,8 @@ export const exampleProfiles: Profile[] = [
     preferences: "likes women",
     bio: "DJ on Fridays, football on Sundays, and street food in between.",
     interests: ["#music", "#football", "#streetfood", "#vinyl"],
+    birthdate: new Date(1990, 7, 19),
+    fameRating: 60,
   },
   {
     id: "user7",
@@ -103,6 +115,8 @@ export const exampleProfiles: Profile[] = [
     preferences: "likes men and women",
     bio: "Nurse who practices yoga, volunteers at an animal shelter, and loves road trips.",
     interests: ["#yoga", "#animals", "#roadtrip", "#healthcare"],
+    birthdate: new Date(1993, 3, 12),
+    fameRating: 85,
   },
 ];
 
@@ -120,6 +134,8 @@ export const profilesThatLiked: Profile[] = [
     preferences: "likes men",
     bio: "Product designer from Lyon. Into ceramics, climbing, and weekend markets.",
     interests: ["#design", "#ceramics", "#climbing", "#markets"],
+    birthdate: new Date(1996, 6, 22),
+    fameRating: 75,
   },
   {
     id: "user4",
@@ -135,6 +151,8 @@ export const profilesThatLiked: Profile[] = [
     preferences: "likes men and women",
     bio: "Data analyst who loves board games, long runs, and cooking Levantine dishes.",
     interests: ["#running", "#boardgames", "#cooking", "#data"],
+    birthdate: new Date(1992, 2, 10),
+    fameRating: 90,
   },
   {
     id: "user5",
@@ -148,6 +166,8 @@ export const profilesThatLiked: Profile[] = [
     preferences: "likes women",
     bio: "Frontend dev, bikepacking on weekends, and obsessed with film photography.",
     interests: ["#frontend", "#bikepacking", "#filmphotography"],
+    birthdate: new Date(1994, 11, 5),
+    fameRating: 55,
   },
   {
     id: "user6",
@@ -162,6 +182,8 @@ export const profilesThatLiked: Profile[] = [
     preferences: "likes women",
     bio: "DJ on Fridays, football on Sundays, and street food in between.",
     interests: ["#music", "#football", "#streetfood", "#vinyl"],
+    birthdate: new Date(1990, 7, 19),
+    fameRating: 60,
   },
   {
     id: "user7",
@@ -177,5 +199,7 @@ export const profilesThatLiked: Profile[] = [
     preferences: "likes men and women",
     bio: "Nurse who practices yoga, volunteers at an animal shelter, and loves road trips.",
     interests: ["#yoga", "#animals", "#roadtrip", "#healthcare"],
+    birthdate: new Date(1993, 3, 12),
+    fameRating: 85,
   },
 ];

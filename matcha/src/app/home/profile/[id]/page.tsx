@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useGlobalAppContext } from "../../../../app/contexts/GlobalAppContext";
 import { useEffect, useMemo, useState } from "react";
 import { ageFromBirthdate } from "../../../../utils/date";
@@ -9,6 +9,7 @@ import { ageFromBirthdate } from "../../../../utils/date";
 export default function UserProfilePage() {
   const { state, dispatch } = useGlobalAppContext();
   const params = useParams();
+  const router = useRouter();
   const userId = params.id as string;
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -87,9 +88,7 @@ export default function UserProfilePage() {
   };
 
   const startChat = () => {
-    alert(
-      `La fonctionnalité de chat avec ${profile.firstName} sera bientôt disponible !`
-    );
+    router.push(`/home/chat/${userId}`);
   };
 
   return (

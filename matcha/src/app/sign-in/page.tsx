@@ -99,11 +99,9 @@ export default function SignIn() {
               isValid={isPasswordValid}
             />
           </div>
-          {/*Handle sending an email to reset password*/}
           <button className="link link-primary text-sm self-center mt-2 mb-0">
             <Link href={"/verification"}>Forgot password</Link>
           </button>
-          {/*Handle first time login to set up profile* VS other times logging in*/}
           <button
             type="submit"
             className="btn btn-primary shadow-lg font-bold

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import type { Profile } from "../types/profile";
+import type { Profile } from "../../types/profile";
 import ImageGallery from "./ImageGallery";
 
 type ProfileCardProps = {

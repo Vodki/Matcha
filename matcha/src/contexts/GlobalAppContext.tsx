@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, ReactNode } from "react";
-import { exampleProfiles } from "../../components/dataExample/profile.example";
-import { Profile } from "../../components/types/profile";
+import { exampleProfiles } from "../components/dataExample/profile.example";
+import { Profile } from "../types/profile";
 
 type User = Profile & { isOnline: boolean; lastSeen: Date | null };
 

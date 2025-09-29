@@ -3,7 +3,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useGlobalAppContext } from "../../../contexts/GlobalAppContext";
+import { useGlobalAppContext } from "../../../../contexts/GlobalAppContext";
 
 export default function ChatPage() {
   const { state, dispatch } = useGlobalAppContext();

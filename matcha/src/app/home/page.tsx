@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import React, { useMemo, useState } from "react";
 import { exampleProfiles } from "../../components/dataExample/profile.example";
-import { Profile, Location } from "../../components/types/profile";
+import { Profile, Location } from "../../types/profile";
 import Link from "next/link";
 
 type Gender = "Man" | "Woman";

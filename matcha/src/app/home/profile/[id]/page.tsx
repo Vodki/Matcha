@@ -2,7 +2,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useGlobalAppContext } from "../../../../app/contexts/GlobalAppContext";
+import { useGlobalAppContext } from "../../../../contexts/GlobalAppContext";
 import { useEffect, useMemo, useState } from "react";
 import { ageFromBirthdate } from "../../../../utils/date";
 
@@ -24,7 +24,7 @@ export default function UserProfilePage() {
 
   const matchScore = useMemo(() => {
     if (!profile || !state.currentUser?.interests?.length) return 0;
-    const commonInterests = profile.interests.filter((tag) =>
+    const commonInterests = profile.interests.filter((tag: string) =>
       state.currentUser.interests.includes(tag)
     );
     const score =
@@ -302,8 +302,8 @@ export default function UserProfilePage() {
           <div>
             <h3 className="font-bold text-lg">Interests</h3>
             <div className="flex flex-wrap gap-2 mt-2">
-              {profile.interests.map((tag) => (
-                <div key={tag} className="badge badge-outline">
+              {profile.interests.map((tag: string, index: number) => (
+                <div key={index} className="badge badge-outline">
                   {tag}
                 </div>
               ))}

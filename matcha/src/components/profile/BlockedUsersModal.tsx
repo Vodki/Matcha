@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { Profile } from "../types/profile";
+import { Profile } from "../../types/profile";
 
 interface BlockedUsersModalProps {
   isOpen: boolean;

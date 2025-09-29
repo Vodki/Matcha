@@ -3,7 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 import React, { useMemo, useState } from "react";
 import { exampleProfiles } from "../../components/dataExample/profile.example";
-import { Profile, Location } from "../../components/types/profile";
+import { Profile, Location } from "../../types/profile";
+import Link from "next/link";
 
 type Gender = "Man" | "Woman";
 type OrientationStr = "likes men" | "likes women" | "likes men and women";
@@ -133,16 +134,6 @@ function scoreCandidate(
 
 type SortKey = "best" | "age" | "distance" | "fame" | "tags";
 
-type Query = {
-  sortBy: SortKey;
-  sortDir: "asc" | "desc";
-  minAge: number;
-  maxAge: number;
-  maxDistanceKm: number;
-  minFame: number;
-  minCommonTags: number;
-};
-
 export default function SuggestedProfilesPage() {
   const myAge = currentUser.birthdate
     ? ageFromBirthdate(currentUser.birthdate)
@@ -150,77 +141,69 @@ export default function SuggestedProfilesPage() {
   const minAgeAll = myAge - 5 >= 18 ? myAge - 5 : 18;
   const maxAgeAll = myAge + 5 <= 99 ? myAge + 5 : 99;
 
-  const defaultQuery: Query = {
+  type Query = {
+    sortBy: SortKey;
+    sortDir: "asc" | "desc";
+    minAge: number;
+    maxAge: number;
+    maxDistanceKm: number;
+    minFame: number;
+    selectedTags: string[];
+  };
+
+  const suggestionsDefaultQuery: Query = {
     sortBy: "best",
     sortDir: "desc",
     minAge: minAgeAll,
     maxAge: maxAgeAll,
     maxDistanceKm: 200,
     minFame: 0,
-    minCommonTags: 0,
+    selectedTags: [],
   };
 
-  const [sortByInput, setSortByInput] = useState<SortKey>(defaultQuery.sortBy);
-  const [sortDirInput, setSortDirInput] = useState<"asc" | "desc">(
-    defaultQuery.sortDir
+  const searchDefaultQuery: Query = {
+    sortBy: "age",
+    sortDir: "desc",
+    minAge: 18,
+    maxAge: 99,
+    maxDistanceKm: 500,
+    minFame: 0,
+    selectedTags: [],
+  };
+
+  const [activeTab, setActiveTab] = useState<"suggestions" | "search">(
+    "suggestions"
   );
 
-  const [minAgeInput, setMinAgeInput] = useState<number>(defaultQuery.minAge);
-  const [maxAgeInput, setMaxAgeInput] = useState<number>(defaultQuery.maxAge);
-
-  const [maxDistanceKmInput, setMaxDistanceKmInput] = useState<number>(
-    defaultQuery.maxDistanceKm
+  const [suggestionsQuery, setSuggestionsQuery] = useState(
+    suggestionsDefaultQuery
   );
-  const [minFameInput, setMinFameInput] = useState<number>(
-    defaultQuery.minFame
+  const [searchQuery, setSearchQuery] = useState(searchDefaultQuery);
+
+  const [suggestionsInput, setSuggestionsInput] = useState(
+    suggestionsDefaultQuery
   );
-  const [minCommonTagsInput, setMinCommonTagsInput] = useState<number>(
-    defaultQuery.minCommonTags
-  );
+  const [searchInput, setSearchInput] = useState(searchDefaultQuery);
 
-  const [query, setQuery] = useState<Query>(defaultQuery);
+  const activeQueryInput =
+    activeTab === "suggestions" ? suggestionsInput : searchInput;
+  const setActiveQueryInput =
+    activeTab === "suggestions" ? setSuggestionsInput : setSearchInput;
 
-  const hasPendingChanges =
-    sortByInput !== query.sortBy ||
-    sortDirInput !== query.sortDir ||
-    minAgeInput !== query.minAge ||
-    maxAgeInput !== query.maxAge ||
-    maxDistanceKmInput !== query.maxDistanceKm ||
-    minFameInput !== query.minFame ||
-    minCommonTagsInput !== query.minCommonTags;
-
-  const applySearch = () => {
-    setQuery({
-      sortBy: sortByInput,
-      sortDir: sortDirInput,
-      minAge: minAgeInput,
-      maxAge: maxAgeInput,
-      maxDistanceKm: maxDistanceKmInput,
-      minFame: minFameInput,
-      minCommonTags: minCommonTagsInput,
+  const allAvailableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    withLocations.forEach((p) => {
+      p.interests.forEach((tag) => tagSet.add(normalizeTag(tag)));
     });
-  };
+    return Array.from(tagSet).sort();
+  }, []);
 
-  const resetFilters = () => {
-    setSortByInput(defaultQuery.sortBy);
-    setSortDirInput(defaultQuery.sortDir);
-    setMinAgeInput(defaultQuery.minAge);
-    setMaxAgeInput(defaultQuery.maxAge);
-    setMaxDistanceKmInput(defaultQuery.maxDistanceKm);
-    setMinFameInput(defaultQuery.minFame);
-    setMinCommonTagsInput(defaultQuery.minCommonTags);
-    setQuery(defaultQuery);
-  };
-
-  const suggestions = useMemo(() => {
+  const displayedProfiles = useMemo(() => {
     const base = withLocations.filter(
       (p) => p.id !== currentUser.id && isInterestingFor(currentUser, p)
     );
-
     const enriched = base.map((p) => {
-      const { score, distanceKm, commonTags } = scoreCandidate(currentUser, p, {
-        distanceCutoffKm: 200,
-      });
+      const { score, distanceKm, commonTags } = scoreCandidate(currentUser, p);
       return {
         profile: p,
         score,
@@ -230,162 +213,232 @@ export default function SuggestedProfilesPage() {
       };
     });
 
-    const filtered = enriched.filter((e) => {
-      const ageOk = e.age >= query.minAge && e.age <= query.maxAge;
-      const fameOk = (e.profile.fameRating ?? 0) >= query.minFame;
-      const tagsOk = e.commonTags >= query.minCommonTags;
+    const queryToApply =
+      activeTab === "suggestions" ? suggestionsQuery : searchQuery;
 
-      const distanceOk =
-        currentUser.location && e.profile.location
-          ? e.distanceKm <= query.maxDistanceKm
-          : true;
+    const filtered = enriched.filter((e) => {
+      const ageOk =
+        e.age >= queryToApply.minAge && e.age <= queryToApply.maxAge;
+      const fameOk = (e.profile.fameRating ?? 0) >= queryToApply.minFame;
+      const distanceOk = e.distanceKm <= queryToApply.maxDistanceKm;
+
+      const tagsOk =
+        queryToApply.selectedTags.length === 0 ||
+        e.profile.interests.some((interest) =>
+          queryToApply.selectedTags.includes(normalizeTag(interest))
+        );
 
       return ageOk && fameOk && tagsOk && distanceOk;
     });
 
     const sorted = [...filtered].sort((a, b) => {
-      const mult = query.sortDir === "asc" ? 1 : -1;
-      switch (query.sortBy) {
+      const mult = queryToApply.sortDir === "asc" ? 1 : -1;
+      switch (queryToApply.sortBy) {
         case "age":
           return mult * (a.age - b.age);
         case "distance":
-          return (
-            mult * ((a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
-          );
+          return mult * (a.distanceKm - b.distanceKm);
         case "fame":
-          return (
-            mult * ((a.profile.fameRating ?? 0) - (b.profile.fameRating ?? 0))
-          );
+          return mult * (a.profile.fameRating - b.profile.fameRating);
         case "tags":
           return mult * (a.commonTags - b.commonTags);
-        case "best":
         default:
           return mult * (a.score - b.score);
       }
     });
 
     return sorted;
-  }, [query]);
+  }, [activeTab, suggestionsQuery, searchQuery]);
+
+  const handleInputChange = (field: keyof Query, value: unknown) => {
+    setActiveQueryInput((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleTagClick = (tag: string) => {
+    setActiveQueryInput((currentInput) => {
+      const currentTags = currentInput.selectedTags;
+      const newTags = currentTags.includes(tag)
+        ? currentTags.filter((t) => t !== tag)
+        : [...currentTags, tag];
+      return { ...currentInput, selectedTags: newTags };
+    });
+  };
+
+  const handleApplyClick = () => {
+    if (activeTab === "suggestions") {
+      setSuggestionsQuery(suggestionsInput);
+    } else {
+      setSearchQuery(searchInput);
+    }
+  };
+
+  const resetFilters = () => {
+    if (activeTab === "suggestions") {
+      setSuggestionsInput(suggestionsDefaultQuery);
+      setSuggestionsQuery(suggestionsDefaultQuery);
+    } else {
+      setSearchInput(searchDefaultQuery);
+      setSearchQuery(searchDefaultQuery);
+    }
+  };
 
   return (
     <div className="w-full min-h-screen p-4 sm:p-6">
-      <h1 className="text-2xl font-bold mb-4">Suggested profiles</h1>
+      <div role="tablist" className="tabs tabs-lifted">
+        <a
+          role="tab"
+          className={`tab ${activeTab === "suggestions" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("suggestions")}
+        >
+          Suggested for you
+        </a>
+        <a
+          role="tab"
+          className={`tab ${activeTab === "search" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("search")}
+        >
+          Advanced search
+        </a>
+      </div>
 
       <div className="rounded-box bg-base-100 shadow-sm ring-1 ring-base-200/50 p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <label className="label">
-              <span className="label-text font-bold">Sort by</span>
-            </label>
-            <div className="flex gap-2">
+        <h1 className="text-xl font-bold mb-4">
+          {activeTab === "suggestions"
+            ? "Filter suggestions"
+            : "Set your search criteria"}
+        </h1>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+          <div className="flex flex-col">
+            <label className="label-text font-bold mb-2">Sort by</label>
+            <div className="flex items-center gap-2">
               <select
                 className="select select-bordered select-sm w-full max-w-xs"
-                value={sortByInput}
-                onChange={(e) => setSortByInput(e.target.value as SortKey)}
+                value={activeQueryInput.sortBy}
+                onChange={(e) =>
+                  handleInputChange("sortBy", e.target.value as SortKey)
+                }
               >
-                <option value="best">Best match</option>
+                {activeTab === "suggestions" && (
+                  <option value="best">Best match</option>
+                )}
                 <option value="age">Age</option>
-                <option value="distance">Location (distance)</option>
-                <option value="fame">Fame rating</option>
+                <option value="distance">Distance</option>
+                <option value="fame">Fame</option>
                 <option value="tags">Common tags</option>
               </select>
               <button
-                className="btn btn-sm"
+                className="btn btn-sm btn-outline"
                 onClick={() =>
-                  setSortDirInput((d) => (d === "asc" ? "desc" : "asc"))
+                  handleInputChange(
+                    "sortDir",
+                    activeQueryInput.sortDir === "asc" ? "desc" : "asc"
+                  )
                 }
-                aria-label="Toggle sort direction"
               >
-                {sortDirInput === "asc" ? "Asc" : "Desc"}
+                {activeQueryInput.sortDir === "asc" ? "↑" : "↓"}
               </button>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="label">
-              <span className="label-text font-bold">Age range</span>
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                className="input input-bordered input-sm w-20"
-                value={minAgeInput}
-                min={18}
-                max={maxAgeInput}
-                onChange={(e) => setMinAgeInput(Number(e.target.value))}
-              />
-              <span>–</span>
-              <input
-                type="number"
-                className="input input-bordered input-sm w-20"
-                value={maxAgeInput}
-                min={minAgeInput}
-                max={99}
-                onChange={(e) => setMaxAgeInput(Number(e.target.value))}
-              />
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="label-text font-bold mb-2 block">
+                Age range
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  className="input input-bordered input-sm w-20"
+                  value={activeQueryInput.minAge}
+                  min={18}
+                  max={activeQueryInput.maxAge}
+                  onChange={(e) =>
+                    handleInputChange("minAge", Number(e.target.value))
+                  }
+                />
+                <span className="opacity-50">–</span>
+                <input
+                  type="number"
+                  className="input input-bordered input-sm w-20"
+                  value={activeQueryInput.maxAge}
+                  min={activeQueryInput.minAge}
+                  max={99}
+                  onChange={(e) =>
+                    handleInputChange("maxAge", Number(e.target.value))
+                  }
+                />
+              </div>
             </div>
-
-            <label className="label">
-              <span className="label-text font-bold">Min. fame rating</span>
-            </label>
-            <div className="flex items-center gap-3">
+            <div>
+              <label className="label-text font-bold mb-2 block">
+                Minimum fame
+              </label>
               <input
                 type="number"
-                className="input input-bordered input-sm w-20"
+                className="input input-bordered input-sm w-full max-w-xs"
                 min={0}
-                value={minFameInput}
-                onChange={(e) => setMinFameInput(Number(e.target.value))}
+                max={100}
+                value={activeQueryInput.minFame}
+                onChange={(e) =>
+                  handleInputChange("minFame", Number(e.target.value))
+                }
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="label">
-              <span className="label-text font-bold">Max distance (km)</span>
-            </label>
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="label-text font-bold mb-2 block">
+                Maximum distance (km)
+              </label>
               <input
                 type="number"
-                className="input input-bordered input-sm w-24"
+                className="input input-bordered input-sm w-full max-w-xs"
                 min={0}
-                value={maxDistanceKmInput}
-                onChange={(e) => setMaxDistanceKmInput(Number(e.target.value))}
+                value={activeQueryInput.maxDistanceKm}
+                onChange={(e) =>
+                  handleInputChange("maxDistanceKm", Number(e.target.value))
+                }
               />
             </div>
 
-            <label className="label">
-              <span className="label-text font-bold">Min. common tags</span>
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                className="input input-bordered input-sm w-20"
-                min={0}
-                value={minCommonTagsInput}
-                onChange={(e) => setMinCommonTagsInput(Number(e.target.value))}
-              />
+            <div>
+              <label className="label-text font-bold mb-2 block">
+                Interests (tags)
+              </label>
+              <div className="flex flex-wrap gap-2 p-2 rounded-box border border-base-200 max-h-32 overflow-y-auto">
+                {allAvailableTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => handleTagClick(tag)}
+                    className={`btn btn-xs ${
+                      activeQueryInput.selectedTags.includes(tag)
+                        ? "btn-primary"
+                        : "btn-ghost"
+                    }`}
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={applySearch}
-            disabled={!hasPendingChanges}
-          >
-            Rechercher
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-base-200 pt-4">
+          <button className="btn btn-primary btn-sm" onClick={handleApplyClick}>
+            {activeTab === "suggestions" ? "Apply filters" : "Search"}
           </button>
-          <button className="btn btn-sm" onClick={resetFilters}>
-            Reset filters
+          <button className="btn btn-ghost btn-sm" onClick={resetFilters}>
+            Reset
           </button>
-          {hasPendingChanges && (
-            <span className="text-xs opacity-70">
-              Modifications non appliquées
-            </span>
-          )}
         </div>
       </div>
+
+      <h2 className="text-2xl font-bold mb-4">
+        {activeTab === "suggestions" ? "Suggested profiles" : "Search results"}
+      </h2>
 
       <div className="overflow-x-auto">
         <table className="table">
@@ -404,92 +457,80 @@ export default function SuggestedProfilesPage() {
             </tr>
           </thead>
           <tbody>
-            {suggestions.map(
-              ({
-                profile,
-                age,
-                distanceKm,
-                score,
-              }: {
-                profile: Profile;
-                age: number;
-                distanceKm: number;
-                score: number;
-              }) => (
-                <tr key={profile.id}>
-                  <td>{(score * 100).toFixed(0)}%</td>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <div className="avatar">
-                        <div className="mask mask-squircle h-12 w-12">
-                          <img
-                            src={
-                              profile.images?.[0] ??
-                              "https://img.daisyui.com/images/profile/demo/2@94.webp"
-                            }
-                            alt={`${profile.firstName} ${profile.lastName}`}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="font-bold">
-                          {profile.firstName} {profile.lastName}
-                        </div>
-                        <div className="text-sm opacity-50">
-                          {profile.location?.city ?? "—"}
-                        </div>
+            {displayedProfiles.map(({ profile, age, distanceKm, score }) => (
+              <tr key={profile.id}>
+                <td>{(score * 100).toFixed(0)}%</td>
+                <td>
+                  <div className="flex items-center gap-3">
+                    <div className="avatar">
+                      <div className="mask mask-squircle h-12 w-12">
+                        <img
+                          src={
+                            profile.images?.[0] ??
+                            "https://img.daisyui.com/images/profile/demo/2@94.webp"
+                          }
+                          alt={`${profile.firstName} ${profile.lastName}`}
+                        />
                       </div>
                     </div>
-                  </td>
-                  <td>{age}</td>
-                  <td>{profile.gender}</td>
-                  <td>{parseOrientation(profile.preferences)}</td>
-                  <td className="max-w-[320px]">
-                    <p className="line-clamp-3">{profile.bio}</p>
-                  </td>
-                  <td className="max-w-[260px]">
-                    <div className="flex flex-wrap gap-1">
-                      {profile.interests.map((t: string, i: number) => (
-                        <span
-                          key={t + i}
-                          className="badge badge-primary badge-sm"
-                        >
-                          #{normalizeTag(t)}
-                        </span>
-                      ))}
+                    <div>
+                      <div className="font-bold">
+                        {profile.firstName} {profile.lastName}
+                      </div>
+                      <div className="text-sm opacity-50">
+                        {profile.location?.city ?? "—"}
+                      </div>
                     </div>
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <span className="tabular-nums">
-                        {profile.fameRating}%
+                  </div>
+                </td>
+                <td>{age}</td>
+                <td>{profile.gender}</td>
+                <td>{parseOrientation(profile.preferences)}</td>
+                <td className="max-w-[320px]">
+                  <p className="line-clamp-3">{profile.bio}</p>
+                </td>
+                <td className="max-w-[260px]">
+                  <div className="flex flex-wrap gap-1">
+                    {profile.interests.map((t: string, i: number) => (
+                      <span
+                        key={t + i}
+                        className="badge badge-primary badge-sm"
+                      >
+                        #{normalizeTag(t)}
                       </span>
-                      <progress
-                        className="progress progress-primary w-24"
-                        value={profile.fameRating}
-                        max={100}
-                      />
-                    </div>
-                  </td>
-                  <td>
-                    {Number.isFinite(distanceKm)
-                      ? `${distanceKm.toFixed(0)} km`
-                      : "—"}
-                  </td>
-                  <td>
-                    <button className="btn btn-primary text-xs">
+                    ))}
+                  </div>
+                </td>
+                <td>
+                  <div className="flex items-center gap-2">
+                    <span className="tabular-nums">{profile.fameRating}%</span>
+                    <progress
+                      className="progress progress-primary w-24"
+                      value={profile.fameRating}
+                      max={100}
+                    />
+                  </div>
+                </td>
+                <td>
+                  {Number.isFinite(distanceKm)
+                    ? `${distanceKm.toFixed(0)} km`
+                    : "—"}
+                </td>
+                <td>
+                  <Link href={`/home/profile/${profile.id}`}>
+                    <button className="btn btn-primary btn-xs">
                       Know more
                     </button>
-                  </td>
-                </tr>
-              )
-            )}
+                  </Link>
+                </td>
+              </tr>
+            ))}
 
-            {suggestions.length === 0 && (
+            {displayedProfiles.length === 0 && (
               <tr>
                 <td colSpan={10}>
                   <div className="text-center py-10 opacity-70">
-                    No profile matches your filters.
+                    No profiles found matching your criteria.
                   </div>
                 </td>
               </tr>

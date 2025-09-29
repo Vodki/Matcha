@@ -17,7 +17,6 @@ export default function VerificationPage() {
             If you haven&#39;t received the email, please check your spam folder
             or request a new verification email.
           </p>
-          {/*Have to be able to resend the verification email*/}
           <button
             type="submit"
             className="btn btn-primary shadow-lg font-bold

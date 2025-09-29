@@ -198,7 +198,6 @@ export default function RegistrationPage() {
             }
             isValid={isPasswordValid}
           />
-          {/*Will need to handle sending the verification email from there once the backend is done*/}
           <button
             type="submit"
             className="btn btn-primary shadow-lg font-bold

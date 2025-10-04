@@ -1,12 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Field from "../../utils/Field";
 import Link from "next/link";
+import api from "../../services/api";
 
 export default function SignIn() {
+  const router = useRouter();
   const [userName, setUserName] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const userNameRegex = /^[A-Za-z][A-Za-z0-9\-]*$/;
   const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
@@ -20,13 +25,41 @@ export default function SignIn() {
 
   const isFormValid = isUsernameValid && isPasswordValid;
 
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isFormValid) return;
+    
+    setIsLoading(true);
+    setErrorMessage("");
+    
+    const result = await api.login({
+      username: userName,
+      password: password,
+    });
+    
+    setIsLoading(false);
+    
+    if (result.error) {
+      setErrorMessage(result.error);
+    } else {
+      // Redirection vers la page d'accueil
+      router.push("/home");
+    }
+  };
+
   return (
     <div className="w-full min-h-screen flex items-center justify-center">
       <div className="flex flex-col gap-2 items-center max-w-md mx-auto px-2">
         <div className="mt-3 text-3xl font-extrabold text-neutral mb-8">
           Sign In
         </div>
-        <div className="bg-base-100/95 shadow-lg px-6 py-8 card w-[430px] flex flex-col items-center h-auto">
+        <form onSubmit={handleLogin} className="bg-base-100/95 shadow-lg px-6 py-8 card w-[430px] flex flex-col items-center h-auto">
+          {errorMessage && (
+            <div className="alert alert-error w-full mb-4">
+              <span>{errorMessage}</span>
+            </div>
+          )}
           <div className="flex flex-col gap-2 w-full">
             <Field
               label="Username *"
@@ -106,19 +139,11 @@ export default function SignIn() {
             type="submit"
             className="btn btn-primary shadow-lg font-bold
             text-lg px-8 py-3 mt-3 transition-all hover:scale-[1.03] active::scale-95 w-full"
-            disabled={!isFormValid}
+            disabled={!isFormValid || isLoading}
           >
-            <Link href={"/informations"}>First Time Log in</Link>
+            {isLoading ? "Logging in..." : "Log in"}
           </button>
-          <button
-            type="submit"
-            className="btn btn-primary shadow-lg font-bold
-            text-lg px-8 py-3 mt-3 transition-all hover:scale-[1.03] active::scale-95 w-full"
-            disabled={!isFormValid}
-          >
-            <Link href={"/"}>Log in</Link>
-          </button>
-        </div>
+        </form>
       </div>
     </div>
   );

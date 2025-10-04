@@ -15,13 +15,16 @@ RUN go mod download
 # Development stage    #
 ########################
 FROM base AS dev
+# Install PostgreSQL client for migrations
+RUN apk add --no-cache postgresql-client
+# Install Goose for database migrations
+RUN go install github.com/pressly/goose/v3/cmd/goose@latest
 # Copy the whole backend context (excluding what is in .dockerignore)
 COPY . .
 # Expose backend port
 EXPOSE 8080
-# In dev we prefer running directly `go run` for fast iteration (with bind mount)
-# You can switch to a live-reload tool (air/reflex) later if desired.
-CMD ["go", "run", "./server"]
+# Use startup script that applies migrations then starts server
+CMD ["bash", "./start.sh"]
 
 ########################
 # Build stage          #

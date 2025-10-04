@@ -1,18 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Field from "../../utils/Field";
 import BirthdatePicker from "../../components/BirthdatePicker";
 import { parseISO, subYears, isAfter } from "date-fns";
+import api from "../../services/api";
 
 export default function RegistrationPage() {
+  const router = useRouter();
   const [email, setEmail] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [birthdate, setBirthdate] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const isAdult = React.useMemo(() => {
     if (!birthdate) return false;
@@ -43,13 +47,44 @@ export default function RegistrationPage() {
     isPasswordValid &&
     isBirthdateValid;
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isFormValid) return;
+    
+    setIsLoading(true);
+    setErrorMessage("");
+    
+    const result = await api.register({
+      username: userName,
+      password: password,
+      email: email,
+      first_name: firstName,
+      last_name: lastName,
+    });
+    
+    setIsLoading(false);
+    
+    if (result.error) {
+      setErrorMessage(result.error);
+    } else {
+      // Redirection vers la page de vérification
+      router.push("/verification");
+    }
+  };
+
   return (
     <div className="w-full min-h-screen">
       <div className="flex flex-col gap-2 items-center w-full md:max-w-md mx-auto px-2">
         <div className="mt-3 text-3xl font-extrabold text-neutral mb-2">
           Registration
         </div>
-        <div className="bg-base-100/95 shadow-lg w-screen px-6 py-8 overflow-y-auto md:card md:w-[430px] flex flex-col items-center gap-4 md:gap-6 h-[75vh] md:h-auto md:overflow-hidden">
+        <form onSubmit={handleSubmit} className="bg-base-100/95 shadow-lg w-screen px-6 py-8 overflow-y-auto md:card md:w-[430px] flex flex-col items-center gap-4 md:gap-6 h-[75vh] md:h-auto md:overflow-hidden">
+          {errorMessage && (
+            <div className="alert alert-error w-full">
+              <span>{errorMessage}</span>
+            </div>
+          )}
           <Field
             label="E-mail *"
             type="email"
@@ -202,11 +237,11 @@ export default function RegistrationPage() {
             type="submit"
             className="btn btn-primary shadow-lg font-bold
             text-lg px-8 py-3 mt-3 transition-all hover:scale-[1.03] active::scale-95 w-full"
-            disabled={!isFormValid}
+            disabled={!isFormValid || isLoading}
           >
-            <Link href={"/verification"}>Register</Link>
+            {isLoading ? "Registration..." : "Register"}
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

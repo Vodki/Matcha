@@ -32,6 +32,7 @@ services:
     container_name: matcha_backend
     environment:
       DB_STRING: postgres://${POSTGRES_USER:-matcha}:${POSTGRES_PASSWORD:-matcha}@db:5432/${POSTGRES_DB:-matcha}?sslmode=disable
+      GMAIL_PASS: ${GMAIL_PASS}
     depends_on:
       db:
         condition: service_healthy
@@ -49,6 +50,7 @@ services:
     container_name: matcha_backend_prod
     environment:
       DB_STRING: postgres://${POSTGRES_USER:-matcha}:${POSTGRES_PASSWORD:-matcha}@db:5432/${POSTGRES_DB:-matcha}?sslmode=disable
+      GMAIL_PASS: ${GMAIL_PASS}
     depends_on:
       db:
         condition: service_healthy

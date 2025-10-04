@@ -1,0 +1,89 @@
+version: "3.9"
+
+# Two usage modes:
+# 1. Development: docker compose --profile dev up --build
+#    - Live reload by mounting source code
+# 2. Production (local): docker compose --profile prod up --build
+#    - Uses built images, no bind mounts
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: matcha_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-matcha}
+      POSTGRES_USER: ${POSTGRES_USER:-matcha}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-matcha}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    profiles: [dev, prod]
+
+  backend:
+    build:
+      context: ./backend
+      target: ${BACKEND_TARGET:-dev}
+    container_name: matcha_backend
+    environment:
+      DB_STRING: postgres://${POSTGRES_USER:-matcha}:${POSTGRES_PASSWORD:-matcha}@db:5432/${POSTGRES_DB:-matcha}?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    # Dev profile mounts source for live reload via `go run`
+    volumes:
+      - ./backend:/app
+    profiles: [dev]
+
+  backend_prod:
+    build:
+      context: ./backend
+      target: prod
+    container_name: matcha_backend_prod
+    environment:
+      DB_STRING: postgres://${POSTGRES_USER:-matcha}:${POSTGRES_PASSWORD:-matcha}@db:5432/${POSTGRES_DB:-matcha}?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    profiles: [prod]
+
+  frontend:
+    build:
+      context: ./matcha
+      target: dev
+    container_name: matcha_frontend
+    environment:
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8080}
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./matcha:/app
+      - /app/node_modules
+    profiles: [dev]
+
+  frontend_prod:
+    build:
+      context: ./matcha
+      target: prod
+    container_name: matcha_frontend_prod
+    environment:
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8080}
+    depends_on:
+      - backend_prod
+    ports:
+      - "3000:3000"
+    profiles: [prod]
+
+volumes:
+  db_data:

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import TagsInput from "../../utils/TagInput";
 import PicturesPicker from "../../utils/PicturePickers";
 import Link from "next/link";
+import api from "../../services/api";
 
 export default function InformationsPage() {
   const [interests, setInterests] = useState<string[]>([]);
@@ -94,6 +95,21 @@ export default function InformationsPage() {
             ...prev,
             localistion: data.display_name,
           }));
+
+          // Save location to backend
+          try {
+            const result = await api.updateLocation(
+              currentLocation.latitude,
+              currentLocation.longitude
+            );
+            if (result.error) {
+              console.error("Error saving location to backend:", result.error);
+            } else {
+              console.log("Location saved successfully to backend");
+            }
+          } catch (error) {
+            console.error("Error calling updateLocation API:", error);
+          }
         } catch (error) {
           console.error("Error reverse geocoding: ", error);
         }

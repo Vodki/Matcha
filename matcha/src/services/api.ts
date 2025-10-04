@@ -129,6 +129,64 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  // Location endpoints
+  async updateLocation(
+    latitude: number,
+    longitude: number,
+    accuracy?: number
+  ): Promise<ApiResponse> {
+    return this.request('/location', {
+      method: 'POST',
+      body: JSON.stringify({ latitude, longitude, accuracy }),
+    });
+  }
+
+  async getUserLocation(userId: string): Promise<ApiResponse<{
+    location: {
+      latitude: number;
+      longitude: number;
+      accuracy?: number;
+      updated_at: string;
+    };
+  }>> {
+    return this.request(`/location/${userId}`, {
+      method: 'GET',
+    });
+  }
+
+  async getNearbyUsers(
+    radius?: number,
+    limit?: number
+  ): Promise<ApiResponse<{
+    nearby_users: Array<{
+      user_id: number;
+      avatar_url?: string;
+      bio?: string;
+      latitude: number;
+      longitude: number;
+      accuracy?: number;
+      updated_at: string;
+      distance_km: number;
+    }>;
+    count: number;
+    radius_km: number;
+    your_location: {
+      latitude: number;
+      longitude: number;
+    };
+  }>> {
+    const params = new URLSearchParams();
+    if (radius) params.append('radius', radius.toString());
+    if (limit) params.append('limit', limit.toString());
+    
+    const queryString = params.toString();
+    const endpoint = `/nearby${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request(endpoint, {
+      method: 'GET',
+    });
+  }
 }
 
 export const api = new ApiService(API_BASE_URL);

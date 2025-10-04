@@ -5,6 +5,7 @@ import (
 	"log"
 	"matcha/utils"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -484,5 +485,117 @@ func GetNearbyUsersHandler(db *sql.DB) gin.HandlerFunc {
 				"longitude": myLon,
 			},
 		})
+	}
+}
+
+// RequestPasswordResetHandler sends a password reset email
+func RequestPasswordResetHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		email := c.PostForm("email")
+
+		if email == "" {
+			c.JSON(400, gin.H{"error": "Email is required"})
+			return
+		}
+
+		// Check if user exists
+		var userID int
+		var username string
+		err := db.QueryRow("SELECT id, username FROM users WHERE email = $1", email).Scan(&userID, &username)
+		if err == sql.ErrNoRows {
+			// Don't reveal if email exists or not for security
+			c.JSON(200, gin.H{"message": "If this email exists, a password reset link has been sent"})
+			return
+		} else if err != nil {
+			log.Printf("Error checking user: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+
+		// Generate reset token
+		resetToken := utils.GenerateToken()
+		expiresAt := time.Now().Add(1 * time.Hour)
+
+		// Save token to database
+		_, err = db.Exec(
+			"UPDATE users SET reset_token = $1, reset_token_expires_at = $2 WHERE id = $3",
+			resetToken, expiresAt, userID,
+		)
+		if err != nil {
+			log.Printf("Error saving reset token: %v", err)
+			c.JSON(500, gin.H{"error": "Error generating reset token"})
+			return
+		}
+
+		// Send reset email
+		err = utils.SendPasswordResetEmail(email, resetToken, username)
+		if err != nil {
+			log.Printf("Error sending reset email: %v", err)
+			c.JSON(500, gin.H{"error": "Error sending reset email"})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "If this email exists, a password reset link has been sent"})
+	}
+}
+
+// ResetPasswordHandler resets the password using the token
+func ResetPasswordHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.PostForm("token")
+		newPassword := c.PostForm("password")
+
+		if token == "" || newPassword == "" {
+			c.JSON(400, gin.H{"error": "Token and new password are required"})
+			return
+		}
+
+		if len(newPassword) < 8 {
+			c.JSON(400, gin.H{"error": "Password must be at least 8 characters long"})
+			return
+		}
+
+		// Check if token exists and is not expired
+		var userID int
+		var expiresAt time.Time
+		err := db.QueryRow(
+			"SELECT id, reset_token_expires_at FROM users WHERE reset_token = $1",
+			token,
+		).Scan(&userID, &expiresAt)
+
+		if err == sql.ErrNoRows {
+			c.JSON(400, gin.H{"error": "Invalid or expired reset token"})
+			return
+		} else if err != nil {
+			log.Printf("Error checking reset token: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+
+		// Check if token is expired
+		if time.Now().After(expiresAt) {
+			c.JSON(400, gin.H{"error": "Reset token has expired"})
+			return
+		}
+
+		// Hash new password
+		hashedPassword, err := utils.HashPassword(newPassword)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Error hashing password"})
+			return
+		}
+
+		// Update password and clear reset token
+		_, err = db.Exec(
+			"UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires_at = NULL WHERE id = $2",
+			hashedPassword, userID,
+		)
+		if err != nil {
+			log.Printf("Error updating password: %v", err)
+			c.JSON(500, gin.H{"error": "Error updating password"})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "Password reset successfully"})
 	}
 }

@@ -133,7 +133,7 @@ export default function SignIn() {
             />
           </div>
           <button className="link link-primary text-sm self-center mt-2 mb-0">
-            <Link href={"/verification"}>Forgot password</Link>
+            <Link href={"/forgot-password"}>Forgot password?</Link>
           </button>
           <button
             type="submit"

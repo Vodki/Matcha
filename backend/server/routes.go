@@ -20,5 +20,10 @@ func RegisterRoutes(router *gin.Engine, db *sql.DB) {
 		protected.GET("/tags", GetUserTagsHandler(db))
 		protected.POST("/tags", PostTagHandler(db))
 		protected.DELETE("/tags", DeleteTagHandler(db))
+
+		// Location endpoints
+		protected.POST("/location", UpdateLocationHandler(db))
+		protected.GET("/location/:userId", GetUserLocationHandler(db))
+		protected.GET("/nearby", GetNearbyUsersHandler(db))
 	}
 }

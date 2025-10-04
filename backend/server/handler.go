@@ -2,7 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"log"
 	"matcha/utils"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -285,5 +287,202 @@ func DeleteTagHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(200, gin.H{"message": "User tag deleted successfully"})
+	}
+}
+
+// UpdateLocationHandler saves or updates user's geolocation
+func UpdateLocationHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userIDVal, exists := c.Get("userID")
+		if !exists {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
+		userID, ok := userIDVal.(int)
+		if !ok {
+			c.JSON(500, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		var request struct {
+			Latitude  float64  `json:"latitude" binding:"required"`
+			Longitude float64  `json:"longitude" binding:"required"`
+			Accuracy  *float64 `json:"accuracy"`
+		}
+
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request", "details": err.Error()})
+			return
+		}
+
+		// Validate coordinates
+		if request.Latitude < -90 || request.Latitude > 90 {
+			c.JSON(400, gin.H{"error": "Latitude must be between -90 and 90"})
+			return
+		}
+		if request.Longitude < -180 || request.Longitude > 180 {
+			c.JSON(400, gin.H{"error": "Longitude must be between -180 and 180"})
+			return
+		}
+
+		// Insert or update location
+		query := `
+			INSERT INTO user_locations (user_id, lat, lon, accuracy_m, updated_at) 
+			VALUES ($1, $2, $3, $4, NOW())
+			ON CONFLICT (user_id) 
+			DO UPDATE SET lat = $2, lon = $3, accuracy_m = $4, updated_at = NOW()
+		`
+		_, err := db.Exec(query, userID, request.Latitude, request.Longitude, request.Accuracy)
+		if err != nil {
+			log.Printf("Error updating location: %v", err)
+			c.JSON(500, gin.H{"error": "Error updating location", "details": err.Error()})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"message": "Location updated successfully",
+			"location": gin.H{
+				"latitude":  request.Latitude,
+				"longitude": request.Longitude,
+				"accuracy":  request.Accuracy,
+			},
+		})
+	}
+}
+
+// GetUserLocationHandler retrieves a specific user's location
+func GetUserLocationHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userIDStr := c.Param("userId")
+		targetUserID, err := strconv.Atoi(userIDStr)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		var location struct {
+			Latitude  float64  `json:"latitude"`
+			Longitude float64  `json:"longitude"`
+			Accuracy  *float64 `json:"accuracy"`
+			UpdatedAt string   `json:"updated_at"`
+		}
+
+		err = db.QueryRow(
+			"SELECT lat, lon, accuracy_m, updated_at FROM user_locations WHERE user_id = $1",
+			targetUserID,
+		).Scan(&location.Latitude, &location.Longitude, &location.Accuracy, &location.UpdatedAt)
+
+		if err == sql.ErrNoRows {
+			c.JSON(404, gin.H{"error": "Location not found for this user"})
+			return
+		} else if err != nil {
+			c.JSON(500, gin.H{"error": "Error fetching location", "details": err.Error()})
+			return
+		}
+
+		c.JSON(200, gin.H{"location": location})
+	}
+}
+
+// GetNearbyUsersHandler finds users near the authenticated user
+func GetNearbyUsersHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userIDVal, exists := c.Get("userID")
+		if !exists {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
+		userID, ok := userIDVal.(int)
+		if !ok {
+			c.JSON(500, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		// Get current user's location
+		var myLat, myLon float64
+		err := db.QueryRow(
+			"SELECT lat, lon FROM user_locations WHERE user_id = $1",
+			userID,
+		).Scan(&myLat, &myLon)
+
+		if err == sql.ErrNoRows {
+			c.JSON(400, gin.H{"error": "You need to set your location first"})
+			return
+		} else if err != nil {
+			c.JSON(500, gin.H{"error": "Error fetching your location", "details": err.Error()})
+			return
+		}
+
+		// Get radius parameter (default 200km)
+		radiusKm := 200.0
+		if radiusStr := c.Query("radius"); radiusStr != "" {
+			if parsedRadius, err := strconv.ParseFloat(radiusStr, 64); err == nil && parsedRadius > 0 {
+				radiusKm = parsedRadius
+			}
+		}
+
+		// Get limit parameter (default 50)
+		limit := 50
+		if limitStr := c.Query("limit"); limitStr != "" {
+			if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+				limit = parsedLimit
+			}
+		}
+
+		// Call the nearby_users function
+		rows, err := db.Query(
+			"SELECT user_id, avatar_url, bio, lat, lon, accuracy_m, updated_at, distance_km FROM nearby_users($1, $2, $3, $4)",
+			myLat, myLon, radiusKm, limit,
+		)
+		if err != nil {
+			log.Printf("Error calling nearby_users: %v", err)
+			c.JSON(500, gin.H{"error": "Error finding nearby users", "details": err.Error()})
+			return
+		}
+		defer rows.Close()
+
+		type NearbyUser struct {
+			UserID     int      `json:"user_id"`
+			AvatarURL  *string  `json:"avatar_url"`
+			Bio        *string  `json:"bio"`
+			Latitude   float64  `json:"latitude"`
+			Longitude  float64  `json:"longitude"`
+			Accuracy   *float64 `json:"accuracy"`
+			UpdatedAt  string   `json:"updated_at"`
+			DistanceKm float64  `json:"distance_km"`
+		}
+
+		var nearbyUsers []NearbyUser
+		for rows.Next() {
+			var user NearbyUser
+			err := rows.Scan(
+				&user.UserID,
+				&user.AvatarURL,
+				&user.Bio,
+				&user.Latitude,
+				&user.Longitude,
+				&user.Accuracy,
+				&user.UpdatedAt,
+				&user.DistanceKm,
+			)
+			if err != nil {
+				log.Printf("Error scanning nearby user: %v", err)
+				continue
+			}
+			// Don't include the current user in results
+			if user.UserID != userID {
+				nearbyUsers = append(nearbyUsers, user)
+			}
+		}
+
+		c.JSON(200, gin.H{
+			"nearby_users": nearbyUsers,
+			"count":        len(nearbyUsers),
+			"radius_km":    radiusKm,
+			"your_location": gin.H{
+				"latitude":  myLat,
+				"longitude": myLon,
+			},
+		})
 	}
 }

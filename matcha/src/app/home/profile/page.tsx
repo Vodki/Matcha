@@ -3,7 +3,12 @@ import React, { useState, useMemo } from "react";
 import StatsInformation from "../../../components/profile/StatsInformation";
 import GeneralInformations from "../../../components/profile/GeneralInformations";
 import BlockedUsersModal from "../../../components/profile/BlockedUsersModal";
-import { useGlobalAppContext } from "../../contexts/GlobalAppContext";
+// Adjust the import path if the file is actually named 'globalAppContext.tsx' or located elsewhere
+// Adjust the import path below to match the actual location and filename of your context hook.
+// For example, if your context file is named 'GlobalAppContext.tsx' and located in 'src/app/contexts':
+// Update the import path below to match the actual location and filename of your context hook.
+// For example, if your context file is named 'GlobalAppContext.tsx' and located in 'src/contexts':
+import { useGlobalAppContext } from "@/contexts/GlobalAppContext";
 
 export default function Profile() {
   const [isModalOpen, setIsModalOpen] = useState(false);

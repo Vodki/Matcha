@@ -111,6 +111,52 @@ class ApiService {
     });
   }
 
+  // Password reset endpoints
+  async requestPasswordReset(email: string): Promise<ApiResponse> {
+    const formData = new URLSearchParams();
+    formData.append('email', email);
+
+    const response = await fetch(`${this.baseUrl}/auth/request-reset`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { error: data.error || 'Failed to request password reset' };
+    }
+
+    return { message: data.message };
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<ApiResponse> {
+    const formData = new URLSearchParams();
+    formData.append('token', token);
+    formData.append('password', newPassword);
+
+    const response = await fetch(`${this.baseUrl}/auth/reset-password`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { error: data.error || 'Failed to reset password' };
+    }
+
+    return { message: data.message };
+  }
+
   // Tags endpoints
   async getTags(): Promise<ApiResponse<{ tags: Array<{ id: number; name: string }> }>> {
     return this.request('/tags', {

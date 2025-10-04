@@ -8,3 +8,6 @@ yarn-error.log
 .vscode
 .idea
 coverage
+.gitignore
+*.md
+.env*.local

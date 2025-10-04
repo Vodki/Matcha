@@ -8,6 +8,7 @@ yarn-error.log
 .DS_Store
 coverage
 *.md
+.env*.local
 # Go build cache / binaries
 backend/backend
 backend/server/server

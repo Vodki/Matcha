@@ -4,7 +4,7 @@
 ########################
 # Base deps layer      #
 ########################
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 WORKDIR /app
 ENV NODE_ENV=development
 # Install OS deps if needed
@@ -37,7 +37,7 @@ RUN npm run build && npm prune --production
 ########################
 # Production runtime   #
 ########################
-FROM node:20-alpine AS prod
+FROM node:24-alpine AS prod
 WORKDIR /app
 ENV NODE_ENV=production
 # Copy only needed artifacts

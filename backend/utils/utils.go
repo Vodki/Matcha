@@ -43,7 +43,7 @@ func SendVerificationEmail(email string, db *sql.DB) {
 
 	mailPass := os.Getenv("GMAIL_PASS")
 	auth := smtp.PlainAuth("", "louis.sylvestre26@gmail.com", mailPass, "smtp.gmail.com")
-	err = smtp.SendMail("smtp.gmail.com:587", auth, "louis.sylvestre26@gmail.com", []string{email}, []byte("Subject: Matcha Email Verification\n\nPlease verify your email by clicking on the following link: http://localhost:8080/verify?token="+token))
+	err = smtp.SendMail("smtp.gmail.com:587", auth, "louis.sylvestre26@gmail.com", []string{email}, []byte("Subject: Matcha Email Verification\n\nPlease verify your email by clicking on the following link: http://localhost:8080/auth/verify?token="+token))
 	if err != nil {
 		log.Printf("Error sending verification email: %v", err)
 	}

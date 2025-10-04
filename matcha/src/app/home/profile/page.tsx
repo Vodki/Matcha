@@ -3,7 +3,7 @@ import React, { useState, useMemo } from "react";
 import StatsInformation from "../../../components/profile/StatsInformation";
 import GeneralInformations from "../../../components/profile/GeneralInformations";
 import BlockedUsersModal from "../../../components/profile/BlockedUsersModal";
-import { useGlobalAppContext } from "../../contexts/GlobalAppContext";
+import { useGlobalAppContext } from "@/contexts/GlobalAppContext";
 
 export default function Profile() {
   const [isModalOpen, setIsModalOpen] = useState(false);

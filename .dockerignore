@@ -1,0 +1,18 @@
+# Global ignore
+.git
+.gitignore
+node_modules
+npm-debug.log
+yarn-error.log
+.next
+.DS_Store
+coverage
+*.md
+# Go build cache / binaries
+backend/backend
+backend/server/server
+backend/server
+backend/tmp
+# IDE
+.vscode
+.idea

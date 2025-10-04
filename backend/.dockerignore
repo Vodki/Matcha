@@ -1,0 +1,11 @@
+# Backend specific ignore
+.git
+vendor
+*.md
+*.log
+.DS_Store
+.vscode
+.idea
+# Binaries
+/out
+/server

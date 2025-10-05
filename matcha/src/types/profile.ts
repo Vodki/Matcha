@@ -50,7 +50,7 @@ export function backendUserToProfile(backendUser: BackendUserProfile): Profile {
     interests: backendUser.tags || [],
     birthdate: backendUser.birthday ? new Date(backendUser.birthday) : new Date(2000, 0, 1),
     fameRating: backendUser.fame_rating || 0,
-    location: backendUser.latitude && backendUser.longitude 
+    location: backendUser.latitude !== undefined && backendUser.longitude !== undefined
       ? { lat: backendUser.latitude, lng: backendUser.longitude }
       : undefined,
   };

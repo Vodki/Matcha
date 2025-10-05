@@ -599,3 +599,266 @@ func ResetPasswordHandler(db *sql.DB) gin.HandlerFunc {
 		c.JSON(200, gin.H{"message": "Password reset successfully"})
 	}
 }
+
+// RecordProfileViewHandler enregistre qu'un utilisateur a vu un profil
+func RecordProfileViewHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionToken := c.GetHeader("X-Session-Token")
+		if sessionToken == "" {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		var viewerID int
+		err := db.QueryRow("SELECT id FROM users WHERE session_token = $1", sessionToken).Scan(&viewerID)
+		if err != nil {
+			c.JSON(401, gin.H{"error": "Invalid session"})
+			return
+		}
+
+		viewedIDStr := c.Param("userId")
+		viewedID, err := strconv.Atoi(viewedIDStr)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		// Ne pas enregistrer si on regarde son propre profil
+		if viewerID == viewedID {
+			c.JSON(200, gin.H{"message": "Cannot view own profile"})
+			return
+		}
+
+		// INSERT ... ON CONFLICT DO NOTHING pour éviter les doublons
+		_, err = db.Exec(
+			`INSERT INTO profile_views (viewer_id, viewed_id) 
+			VALUES ($1, $2) 
+			ON CONFLICT (viewer_id, viewed_id) DO NOTHING`,
+			viewerID, viewedID,
+		)
+		if err != nil {
+			log.Printf("Error recording profile view: %v", err)
+			c.JSON(500, gin.H{"error": "Error recording view"})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "View recorded successfully"})
+	}
+}
+
+// ToggleProfileLikeHandler ajoute ou retire un like sur un profil
+func ToggleProfileLikeHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionToken := c.GetHeader("X-Session-Token")
+		if sessionToken == "" {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		var likerID int
+		err := db.QueryRow("SELECT id FROM users WHERE session_token = $1", sessionToken).Scan(&likerID)
+		if err != nil {
+			c.JSON(401, gin.H{"error": "Invalid session"})
+			return
+		}
+
+		likedIDStr := c.Param("userId")
+		likedID, err := strconv.Atoi(likedIDStr)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		// Ne pas se liker soi-même
+		if likerID == likedID {
+			c.JSON(400, gin.H{"error": "Cannot like own profile"})
+			return
+		}
+
+		// Vérifier si le like existe déjà
+		var exists bool
+		err = db.QueryRow(
+			"SELECT EXISTS(SELECT 1 FROM profile_likes WHERE liker_id = $1 AND liked_id = $2)",
+			likerID, likedID,
+		).Scan(&exists)
+		if err != nil {
+			log.Printf("Error checking like existence: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+
+		if exists {
+			// Unlike - retirer le like
+			_, err = db.Exec(
+				"DELETE FROM profile_likes WHERE liker_id = $1 AND liked_id = $2",
+				likerID, likedID,
+			)
+			if err != nil {
+				log.Printf("Error removing like: %v", err)
+				c.JSON(500, gin.H{"error": "Error removing like"})
+				return
+			}
+			c.JSON(200, gin.H{"message": "Like removed", "liked": false})
+		} else {
+			// Like - ajouter le like
+			_, err = db.Exec(
+				"INSERT INTO profile_likes (liker_id, liked_id) VALUES ($1, $2)",
+				likerID, likedID,
+			)
+			if err != nil {
+				log.Printf("Error adding like: %v", err)
+				c.JSON(500, gin.H{"error": "Error adding like"})
+				return
+			}
+			c.JSON(200, gin.H{"message": "Like added", "liked": true})
+		}
+	}
+}
+
+// GetProfileStatsHandler retourne les statistiques d'un profil (vues, likes, fame rating)
+func GetProfileStatsHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userIDStr := c.Param("userId")
+		userID, err := strconv.Atoi(userIDStr)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		var viewsCount, likesCount int
+		var fameRating float64
+
+		// Compter les vues
+		err = db.QueryRow("SELECT COUNT(*) FROM profile_views WHERE viewed_id = $1", userID).Scan(&viewsCount)
+		if err != nil {
+			log.Printf("Error counting views: %v", err)
+			viewsCount = 0
+		}
+
+		// Compter les likes
+		err = db.QueryRow("SELECT COUNT(*) FROM profile_likes WHERE liked_id = $1", userID).Scan(&likesCount)
+		if err != nil {
+			log.Printf("Error counting likes: %v", err)
+			likesCount = 0
+		}
+
+		// Récupérer le fame rating
+		err = db.QueryRow("SELECT COALESCE(fame_rating, 0) FROM users WHERE id = $1", userID).Scan(&fameRating)
+		if err != nil {
+			log.Printf("Error getting fame rating: %v", err)
+			fameRating = 0
+		}
+
+		c.JSON(200, gin.H{
+			"views":       viewsCount,
+			"likes":       likesCount,
+			"fame_rating": fameRating,
+		})
+	}
+}
+
+// CheckLikeStatusHandler vérifie si l'utilisateur actuel a liké un profil
+func CheckLikeStatusHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionToken := c.GetHeader("X-Session-Token")
+		if sessionToken == "" {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		var likerID int
+		err := db.QueryRow("SELECT id FROM users WHERE session_token = $1", sessionToken).Scan(&likerID)
+		if err != nil {
+			c.JSON(401, gin.H{"error": "Invalid session"})
+			return
+		}
+
+		likedIDStr := c.Param("userId")
+		likedID, err := strconv.Atoi(likedIDStr)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		var liked bool
+		err = db.QueryRow(
+			"SELECT EXISTS(SELECT 1 FROM profile_likes WHERE liker_id = $1 AND liked_id = $2)",
+			likerID, likedID,
+		).Scan(&liked)
+		if err != nil {
+			log.Printf("Error checking like status: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+
+		c.JSON(200, gin.H{"liked": liked})
+	}
+}
+
+// GetCurrentUserHandler retourne les informations de l'utilisateur connecté
+func GetCurrentUserHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionToken, err := c.Cookie("session_token")
+		if err != nil {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		var userID int
+		var username, email, firstName, lastName string
+		var gender, orientation, bio, avatarURL sql.NullString
+		var birthday sql.NullTime
+		var fameRating sql.NullFloat64
+
+		err = db.QueryRow(`
+			SELECT id, username, email, first_name, last_name, gender, orientation, 
+			       birthday, bio, avatar_url, fame_rating
+			FROM users 
+			WHERE session_token = $1
+		`, sessionToken).Scan(
+			&userID, &username, &email, &firstName, &lastName,
+			&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating,
+		)
+
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(401, gin.H{"error": "Invalid session"})
+			} else {
+				log.Printf("Error fetching current user: %v", err)
+				c.JSON(500, gin.H{"error": "Database error"})
+			}
+			return
+		}
+
+		response := gin.H{
+			"id":         userID,
+			"username":   username,
+			"email":      email,
+			"first_name": firstName,
+			"last_name":  lastName,
+		}
+
+		if gender.Valid {
+			response["gender"] = gender.String
+		}
+		if orientation.Valid {
+			response["orientation"] = orientation.String
+		}
+		if birthday.Valid {
+			response["birthday"] = birthday.Time.Format("2006-01-02")
+		}
+		if bio.Valid {
+			response["bio"] = bio.String
+		}
+		if avatarURL.Valid {
+			response["avatar_url"] = avatarURL.String
+		}
+		if fameRating.Valid {
+			response["fame_rating"] = fameRating.Float64
+		} else {
+			response["fame_rating"] = 0.0
+		}
+
+		c.JSON(200, response)
+	}
+}

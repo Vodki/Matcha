@@ -233,6 +233,54 @@ class ApiService {
       method: 'GET',
     });
   }
+
+  // Fame rating endpoints
+  async recordProfileView(userId: string): Promise<ApiResponse> {
+    return this.request(`/profile/${userId}/view`, {
+      method: 'POST',
+    });
+  }
+
+  async toggleProfileLike(userId: string): Promise<ApiResponse<{ liked: boolean }>> {
+    return this.request(`/profile/${userId}/like`, {
+      method: 'POST',
+    });
+  }
+
+  async getProfileStats(userId: string): Promise<ApiResponse<{
+    views: number;
+    likes: number;
+    fame_rating: number;
+  }>> {
+    return this.request(`/profile/${userId}/stats`, {
+      method: 'GET',
+    });
+  }
+
+  async checkLikeStatus(userId: string): Promise<ApiResponse<{ liked: boolean }>> {
+    return this.request(`/profile/${userId}/like-status`, {
+      method: 'GET',
+    });
+  }
+
+  // User endpoints
+  async getCurrentUser(): Promise<ApiResponse<{
+    id: number;
+    username: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    gender?: string;
+    orientation?: string;
+    birthday?: string;
+    bio?: string;
+    avatar_url?: string;
+    fame_rating: number;
+  }>> {
+    return this.request('/me', {
+      method: 'GET',
+    });
+  }
 }
 
 export const api = new ApiService(API_BASE_URL);

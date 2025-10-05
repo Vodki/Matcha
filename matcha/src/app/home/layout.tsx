@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useGlobalAppContext } from "../../contexts/GlobalAppContext";
+import { useGlobalAppContext } from "@/contexts/GlobalAppContext";
 import NotificationBell from "../../components/profile/NotificationBell";
 import LogoutButton from "@/components/LogoutButton";
 

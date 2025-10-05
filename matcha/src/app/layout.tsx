@@ -1,6 +1,6 @@
 import "../styles/globals.css";
 import Image from "next/image";
-import { GlobalAppContextProvider } from "../contexts/GlobalAppContext";
+import { GlobalAppContextProvider } from "@/contexts/GlobalAppContext";
 
 export default function RootLayout({
   children,

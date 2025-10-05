@@ -2,9 +2,10 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useGlobalAppContext } from "../../../../contexts/GlobalAppContext";
+import { useGlobalAppContext } from "@/contexts/GlobalAppContext";
 import { useEffect, useMemo, useState } from "react";
 import { ageFromBirthdate } from "../../../../utils/date";
+import { useFameRating } from "../../../../hooks/useFameRating";
 
 export default function UserProfilePage() {
   const { state, dispatch } = useGlobalAppContext();
@@ -16,11 +17,16 @@ export default function UserProfilePage() {
 
   const profile = state.users.find((u) => u.id === userId);
 
+  // Hook pour gérer le fame rating, les likes et les vues
+  const { stats, isLiked, loading: statsLoading, recordView, toggleLike } = useFameRating(userId);
+
   useEffect(() => {
     if (userId) {
       dispatch({ type: "RECORD_VISIT", payload: { userId } });
+      // Enregistrer la vue du profil
+      recordView();
     }
-  }, [userId, dispatch]);
+  }, [userId, dispatch, recordView]);
 
   const matchScore = useMemo(() => {
     if (!profile || !state.currentUser?.interests?.length) return 0;
@@ -52,6 +58,10 @@ export default function UserProfilePage() {
       alert("You have to have a profile picture to like others' profiles.");
       return;
     }
+    // Utiliser le toggle like de l'API
+    toggleLike();
+    
+    // Garder aussi la logique locale pour la compatibilité
     if (iLikeThem) {
       dispatch({ type: "UNLIKE_USER", payload: { userId } });
     } else {
@@ -311,7 +321,31 @@ export default function UserProfilePage() {
           </div>
 
           <p className="mt-4 text-sm text-base-content/50">
-            Popularity: {profile.fameRating}%
+            {statsLoading ? (
+              "Loading stats..."
+            ) : (
+              <div className="stats shadow">
+                <div className="stat place-items-center">
+                  <div className="stat-title">Popularity</div>
+                  <div className="stat-value text-primary">{stats.fame_rating.toFixed(1)}%</div>
+                  <div className="stat-desc">Fame Rating</div>
+                </div>
+                <div className="stat place-items-center">
+                  <div className="stat-title">Profile Views</div>
+                  <div className="stat-value text-secondary">{stats.views}</div>
+                  <div className="stat-desc">Total views</div>
+                </div>
+                <div className="stat place-items-center">
+                  <div className="stat-title">Likes</div>
+                  <div className="stat-value">{stats.likes}</div>
+                  <div className="stat-desc">
+                    {stats.views > 0 
+                      ? `${((stats.likes / stats.views) * 100).toFixed(0)}% conversion`
+                      : 'No views yet'}
+                  </div>
+                </div>
+              </div>
+            )}
           </p>
         </div>
       </div>

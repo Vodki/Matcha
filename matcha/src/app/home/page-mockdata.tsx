@@ -2,14 +2,23 @@
 
 /* eslint-disable @next/next/no-img-element */
 import React, { useMemo, useState } from "react";
-import { Profile, backendUserToProfile } from "../../types/profile";
-import { useProfiles } from "../../hooks/useProfiles";
+import { exampleProfiles } from "../../components/dataExample/profile.example";
+import { Profile, Location } from "../../types/profile";
 import Link from "next/link";
 
 type Gender = "Man" | "Woman";
 type OrientationStr = "likes men" | "likes women" | "likes men and women";
 
-// TODO: Récupérer le currentUser depuis le contexte d'authentification
+const locationById: Record<string, Location> = {
+  user1: { city: "Paris", country: "FR", lat: 48.8566, lng: 2.3522 },
+  user2: { city: "Lyon", country: "FR", lat: 45.764, lng: 4.8357 },
+  user3: { city: "Lyon", country: "FR", lat: 45.764, lng: 4.8357 },
+  user4: { city: "Marseille", country: "FR", lat: 43.2965, lng: 5.3698 },
+  user5: { city: "Toulouse", country: "FR", lat: 43.6045, lng: 1.4442 },
+  user6: { city: "Bordeaux", country: "FR", lat: 44.8378, lng: -0.5792 },
+  user7: { city: "Paris", country: "FR", lat: 48.8566, lng: 2.3522 },
+};
+
 const currentUser: Profile = {
   id: "me",
   firstName: "Alex",
@@ -18,10 +27,10 @@ const currentUser: Profile = {
   gender: "Woman",
   preferences: "likes men and women",
   bio: "Hello Matcha 👋",
-  interests: ["running", "cats", "coding"],
+  interests: ["#running", "#cats", "#coding"],
   birthdate: new Date(2000, 5, 4),
   fameRating: 50,
-  location: { lat: 45.75, lng: 4.85 },
+  location: { city: "Lyon", country: "FR", lat: 45.75, lng: 4.85 },
 };
 
 const today = new Date();
@@ -31,12 +40,12 @@ function ageFromBirthdate(d: Date) {
   return m < 0 || (m === 0 && today.getDate() < d.getDate()) ? a - 1 : a;
 }
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+function haversineKm(a: Location, b: Location) {
   const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const la1 = (lat1 * Math.PI) / 180;
-  const la2 = (lat2 * Math.PI) / 180;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const la1 = (a.lat * Math.PI) / 180;
+  const la2 = (b.lat * Math.PI) / 180;
   const sinDLat = Math.sin(dLat / 2);
   const sinDLng = Math.sin(dLng / 2);
   const h =
@@ -83,6 +92,11 @@ function isInterestingFor(current: Profile, candidate: Profile) {
   return targets.includes(candidate.gender as Gender);
 }
 
+const withLocations: Profile[] = exampleProfiles.map((p) => ({
+  ...p,
+  location: p.location ?? locationById[p.id],
+}));
+
 function scoreCandidate(
   viewer: Profile,
   candidate: Profile,
@@ -93,12 +107,7 @@ function scoreCandidate(
 
   let distanceKm = Infinity;
   if (viewer.location && candidate.location) {
-    distanceKm = haversineKm(
-      viewer.location.lat,
-      viewer.location.lng,
-      candidate.location.lat,
-      candidate.location.lng
-    );
+    distanceKm = haversineKm(viewer.location, candidate.location);
   }
   const distanceScore =
     distanceKm === Infinity ? 0 : Math.max(0, 1 - distanceKm / cutoff);
@@ -113,21 +122,19 @@ function scoreCandidate(
   );
   const tagsScore = common / denom;
 
-  const base = 0.5 * distanceScore + 0.3 * tagsScore + 0.2 * fame;
+  const sameCity =
+    viewer.location?.city && candidate.location?.city
+      ? viewer.location.city === candidate.location.city
+      : false;
+  const areaBoost = sameCity ? 0.15 : 0;
+
+  const base = 0.5 * distanceScore + 0.3 * tagsScore + 0.2 * fame + areaBoost;
   return { score: Math.min(1, base), distanceKm, commonTags: common };
 }
 
 type SortKey = "best" | "age" | "distance" | "fame" | "tags";
 
 export default function SuggestedProfilesPage() {
-  // Récupérer les profils depuis l'API
-  const { profiles: backendProfiles, loading, error } = useProfiles();
-
-  // Convertir les profils backend en profils frontend
-  const allProfiles = useMemo(() => {
-    return backendProfiles.map(backendUserToProfile);
-  }, [backendProfiles]);
-
   const myAge = currentUser.birthdate
     ? ageFromBirthdate(currentUser.birthdate)
     : 18;
@@ -185,14 +192,14 @@ export default function SuggestedProfilesPage() {
 
   const allAvailableTags = useMemo(() => {
     const tagSet = new Set<string>();
-    allProfiles.forEach((p) => {
+    withLocations.forEach((p) => {
       p.interests.forEach((tag) => tagSet.add(normalizeTag(tag)));
     });
     return Array.from(tagSet).sort();
-  }, [allProfiles]);
+  }, []);
 
   const displayedProfiles = useMemo(() => {
-    const base = allProfiles.filter(
+    const base = withLocations.filter(
       (p) => p.id !== currentUser.id && isInterestingFor(currentUser, p)
     );
     const enriched = base.map((p) => {
@@ -241,7 +248,7 @@ export default function SuggestedProfilesPage() {
     });
 
     return sorted;
-  }, [activeTab, suggestionsQuery, searchQuery, allProfiles]);
+  }, [activeTab, suggestionsQuery, searchQuery]);
 
   const handleInputChange = (field: keyof Query, value: unknown) => {
     setActiveQueryInput((prev) => ({ ...prev, [field]: value }));
@@ -274,24 +281,6 @@ export default function SuggestedProfilesPage() {
       setSearchQuery(searchDefaultQuery);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="w-full min-h-screen flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="w-full min-h-screen flex items-center justify-center">
-        <div className="alert alert-error">
-          <span>Error loading profiles: {error}</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full min-h-screen p-4 sm:p-6">
@@ -448,7 +437,7 @@ export default function SuggestedProfilesPage() {
       </div>
 
       <h2 className="text-2xl font-bold mb-4">
-        {activeTab === "suggestions" ? "Suggested profiles" : "Search results"} ({displayedProfiles.length})
+        {activeTab === "suggestions" ? "Suggested profiles" : "Search results"}
       </h2>
 
       <div className="overflow-x-auto">
@@ -464,7 +453,6 @@ export default function SuggestedProfilesPage() {
               <th>Interests</th>
               <th>Fame</th>
               <th>Distance</th>
-              <th>Status</th>
               <th></th>
             </tr>
           </thead>
@@ -490,7 +478,7 @@ export default function SuggestedProfilesPage() {
                         {profile.firstName} {profile.lastName}
                       </div>
                       <div className="text-sm opacity-50">
-                        @{profile.username || `user${profile.id}`}
+                        {profile.location?.city ?? "—"}
                       </div>
                     </div>
                   </div>
@@ -515,7 +503,7 @@ export default function SuggestedProfilesPage() {
                 </td>
                 <td>
                   <div className="flex items-center gap-2">
-                    <span className="tabular-nums">{profile.fameRating.toFixed(1)}%</span>
+                    <span className="tabular-nums">{profile.fameRating}%</span>
                     <progress
                       className="progress progress-primary w-24"
                       value={profile.fameRating}
@@ -529,17 +517,6 @@ export default function SuggestedProfilesPage() {
                     : "—"}
                 </td>
                 <td>
-                  {profile.isOnline ? (
-                    <span className="badge badge-success badge-sm">Online</span>
-                  ) : profile.lastSeen ? (
-                    <span className="badge badge-ghost badge-sm">
-                      {new Date(profile.lastSeen).toLocaleDateString()}
-                    </span>
-                  ) : (
-                    <span className="badge badge-ghost badge-sm">Offline</span>
-                  )}
-                </td>
-                <td>
                   <Link href={`/home/profile/${profile.id}`}>
                     <button className="btn btn-primary btn-xs">
                       Know more
@@ -551,7 +528,7 @@ export default function SuggestedProfilesPage() {
 
             {displayedProfiles.length === 0 && (
               <tr>
-                <td colSpan={11}>
+                <td colSpan={10}>
                   <div className="text-center py-10 opacity-70">
                     No profiles found matching your criteria.
                   </div>

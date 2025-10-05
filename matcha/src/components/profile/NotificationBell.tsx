@@ -1,5 +1,5 @@
 "use client";
-import { useGlobalAppContext } from "../../contexts/GlobalAppContext";
+import { useGlobalAppContext } from "@/contexts/GlobalAppContext";
 
 export default function NotificationBell() {
   const { state, dispatch } = useGlobalAppContext();

@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useGlobalAppContext } from "../../contexts/GlobalAppContext";
+import { useGlobalAppContext } from "@/contexts/GlobalAppContext";
 import { useMemo } from "react";
 import Link from "next/link";
 

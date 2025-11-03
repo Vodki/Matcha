@@ -4,25 +4,11 @@
 import React, { useMemo, useState } from "react";
 import { Profile, backendUserToProfile } from "../../types/profile";
 import { useProfiles } from "../../hooks/useProfiles";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import Link from "next/link";
 
 type Gender = "Man" | "Woman";
 type OrientationStr = "likes men" | "likes women" | "likes men and women";
-
-// TODO: Récupérer le currentUser depuis le contexte d'authentification
-const currentUser: Profile = {
-  id: "me",
-  firstName: "Alex",
-  lastName: "Dupont",
-  images: [],
-  gender: "Woman",
-  preferences: "likes men and women",
-  bio: "Hello Matcha 👋",
-  interests: ["running", "cats", "coding"],
-  birthdate: new Date(2000, 5, 4),
-  fameRating: 50,
-  location: { lat: 45.75, lng: 4.85 },
-};
 
 const today = new Date();
 function ageFromBirthdate(d: Date) {
@@ -120,6 +106,9 @@ function scoreCandidate(
 type SortKey = "best" | "age" | "distance" | "fame" | "tags";
 
 export default function SuggestedProfilesPage() {
+  // Récupérer l'utilisateur connecté
+  const { currentUser, loading: loadingCurrentUser, error: currentUserError } = useCurrentUser();
+  
   // Récupérer les profils depuis l'API
   const { profiles: backendProfiles, loading, error } = useProfiles();
 
@@ -128,7 +117,7 @@ export default function SuggestedProfilesPage() {
     return backendProfiles.map(backendUserToProfile);
   }, [backendProfiles]);
 
-  const myAge = currentUser.birthdate
+  const myAge = currentUser?.birthdate
     ? ageFromBirthdate(currentUser.birthdate)
     : 18;
   const minAgeAll = myAge - 5 >= 18 ? myAge - 5 : 18;
@@ -192,6 +181,8 @@ export default function SuggestedProfilesPage() {
   }, [allProfiles]);
 
   const displayedProfiles = useMemo(() => {
+    if (!currentUser) return [];
+    
     const base = allProfiles.filter(
       (p) => p.id !== currentUser.id && isInterestingFor(currentUser, p)
     );
@@ -241,7 +232,7 @@ export default function SuggestedProfilesPage() {
     });
 
     return sorted;
-  }, [activeTab, suggestionsQuery, searchQuery, allProfiles]);
+  }, [activeTab, suggestionsQuery, searchQuery, allProfiles, currentUser]);
 
   const handleInputChange = (field: keyof Query, value: unknown) => {
     setActiveQueryInput((prev) => ({ ...prev, [field]: value }));
@@ -275,7 +266,7 @@ export default function SuggestedProfilesPage() {
     }
   };
 
-  if (loading) {
+  if (loading || loadingCurrentUser) {
     return (
       <div className="w-full min-h-screen flex items-center justify-center">
         <span className="loading loading-spinner loading-lg"></span>
@@ -283,11 +274,21 @@ export default function SuggestedProfilesPage() {
     );
   }
 
-  if (error) {
+  if (error || currentUserError) {
     return (
       <div className="w-full min-h-screen flex items-center justify-center">
         <div className="alert alert-error">
-          <span>Error loading profiles: {error}</span>
+          <span>Error loading profiles: {error || currentUserError}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center">
+        <div className="alert alert-warning">
+          <span>Please log in to see suggested profiles</span>
         </div>
       </div>
     );

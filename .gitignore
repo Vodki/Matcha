@@ -60,3 +60,6 @@ temp/
 
 # Cookies for testing
 cookies.txt
+
+# Venv
+venv/

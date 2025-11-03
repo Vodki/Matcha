@@ -24,6 +24,7 @@ func RegisterRoutes(router *gin.Engine, db *sql.DB) {
 
 		// User endpoints
 		protected.GET("/me", GetCurrentUserHandler(db))
+		protected.GET("/users", GetAllUsersHandler(db))
 
 		protected.GET("/tags", GetUserTagsHandler(db))
 		protected.POST("/tags", PostTagHandler(db))

@@ -35,10 +35,31 @@ export interface BackendUserProfile {
   tags?: string[];
   latitude?: number;
   longitude?: number;
+  location?: {
+    lat: number;
+    lon: number;
+  };
 }
 
 // Fonction pour convertir un profil backend en profil frontend
 export function backendUserToProfile(backendUser: BackendUserProfile): Profile {
+  // Gérer la localisation depuis différents formats du backend
+  let location: Location | undefined = undefined;
+  
+  if (backendUser.location) {
+    // Format de l'endpoint /me: { lat, lon }
+    location = { 
+      lat: backendUser.location.lat, 
+      lng: backendUser.location.lon 
+    };
+  } else if (backendUser.latitude !== undefined && backendUser.longitude !== undefined) {
+    // Format de l'endpoint /users: latitude, longitude
+    location = { 
+      lat: backendUser.latitude, 
+      lng: backendUser.longitude 
+    };
+  }
+  
   return {
     id: backendUser.id.toString(),
     firstName: backendUser.first_name || backendUser.username || 'Unknown',
@@ -50,9 +71,7 @@ export function backendUserToProfile(backendUser: BackendUserProfile): Profile {
     interests: backendUser.tags || [],
     birthdate: backendUser.birthday ? new Date(backendUser.birthday) : new Date(2000, 0, 1),
     fameRating: backendUser.fame_rating || 0,
-    location: backendUser.latitude !== undefined && backendUser.longitude !== undefined
-      ? { lat: backendUser.latitude, lng: backendUser.longitude }
-      : undefined,
+    location,
   };
 }
 

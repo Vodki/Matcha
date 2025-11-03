@@ -29,10 +29,12 @@ func RegisterHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		if len(password) < 8 {
-			c.JSON(400, gin.H{"error": "Password must be at least 8 characters long"})
+		// Validate password requirements
+		if err := utils.ValidatePassword(password); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
+
 		hashedPassword, err := utils.HashPassword(password)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Error hashing password"})
@@ -550,8 +552,9 @@ func ResetPasswordHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		if len(newPassword) < 8 {
-			c.JSON(400, gin.H{"error": "Password must be at least 8 characters long"})
+		// Validate password requirements
+		if err := utils.ValidatePassword(newPassword); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
 

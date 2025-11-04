@@ -41,5 +41,10 @@ func RegisterRoutes(router *gin.Engine, db *sql.DB) {
 		protected.POST("/profile/:userId/like", ToggleProfileLikeHandler(db))
 		protected.GET("/profile/:userId/stats", GetProfileStatsHandler(db))
 		protected.GET("/profile/:userId/like-status", CheckLikeStatusHandler(db))
+
+		// Profile update endpoints
+		protected.PUT("/profile/update", UpdateProfileHandler(db))
+		protected.PUT("/profile/email", UpdateEmailHandler(db))
+		protected.PUT("/profile/tags", UpdateTagsHandler(db))
 	}
 }

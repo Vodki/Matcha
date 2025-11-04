@@ -652,16 +652,15 @@ func RecordProfileViewHandler(db *sql.DB) gin.HandlerFunc {
 // ToggleProfileLikeHandler ajoute ou retire un like sur un profil
 func ToggleProfileLikeHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionToken := c.GetHeader("X-Session-Token")
-		if sessionToken == "" {
+		// Récupérer l'ID de l'utilisateur connecté depuis le contexte (middleware)
+		likerIDVal, userExists := c.Get("userID")
+		if !userExists {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
 			return
 		}
-
-		var likerID int
-		err := db.QueryRow("SELECT id FROM users WHERE session_token = $1", sessionToken).Scan(&likerID)
-		if err != nil {
-			c.JSON(401, gin.H{"error": "Invalid session"})
+		likerID, ok := likerIDVal.(int)
+		if !ok {
+			c.JSON(500, gin.H{"error": "Invalid user ID"})
 			return
 		}
 
@@ -679,18 +678,18 @@ func ToggleProfileLikeHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// Vérifier si le like existe déjà
-		var exists bool
+		var likeExists bool
 		err = db.QueryRow(
 			"SELECT EXISTS(SELECT 1 FROM profile_likes WHERE liker_id = $1 AND liked_id = $2)",
 			likerID, likedID,
-		).Scan(&exists)
+		).Scan(&likeExists)
 		if err != nil {
 			log.Printf("Error checking like existence: %v", err)
 			c.JSON(500, gin.H{"error": "Database error"})
 			return
 		}
 
-		if exists {
+		if likeExists {
 			// Unlike - retirer le like
 			_, err = db.Exec(
 				"DELETE FROM profile_likes WHERE liker_id = $1 AND liked_id = $2",
@@ -763,16 +762,15 @@ func GetProfileStatsHandler(db *sql.DB) gin.HandlerFunc {
 // CheckLikeStatusHandler vérifie si l'utilisateur actuel a liké un profil
 func CheckLikeStatusHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionToken := c.GetHeader("X-Session-Token")
-		if sessionToken == "" {
+		// Récupérer l'ID de l'utilisateur connecté depuis le contexte (middleware)
+		userIDVal, userExists := c.Get("userID")
+		if !userExists {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
 			return
 		}
-
-		var likerID int
-		err := db.QueryRow("SELECT id FROM users WHERE session_token = $1", sessionToken).Scan(&likerID)
-		if err != nil {
-			c.JSON(401, gin.H{"error": "Invalid session"})
+		likerID, ok := userIDVal.(int)
+		if !ok {
+			c.JSON(500, gin.H{"error": "Invalid user ID"})
 			return
 		}
 
@@ -1097,5 +1095,230 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(200, user)
+	}
+}
+
+// UpdateProfileHandler met à jour les informations du profil utilisateur
+func UpdateProfileHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Récupérer l'ID de l'utilisateur depuis le contexte (middleware)
+		userIDVal, exists := c.Get("userID")
+		if !exists {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
+		userID, ok := userIDVal.(int)
+		if !ok {
+			c.JSON(500, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		var requestData struct {
+			Gender      *string `json:"gender"`
+			Orientation *string `json:"orientation"`
+			Bio         *string `json:"bio"`
+			FirstName   *string `json:"first_name"`
+			LastName    *string `json:"last_name"`
+			Birthday    *string `json:"birthday"`
+		}
+
+		if err := c.BindJSON(&requestData); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request data"})
+			return
+		}
+
+		// Construire la requête de mise à jour dynamiquement
+		updates := []string{}
+		args := []interface{}{}
+		argIndex := 1
+
+		if requestData.Gender != nil {
+			updates = append(updates, "gender = $"+strconv.Itoa(argIndex))
+			args = append(args, *requestData.Gender)
+			argIndex++
+		}
+		if requestData.Orientation != nil {
+			updates = append(updates, "orientation = $"+strconv.Itoa(argIndex))
+			args = append(args, *requestData.Orientation)
+			argIndex++
+		}
+		if requestData.Bio != nil {
+			updates = append(updates, "bio = $"+strconv.Itoa(argIndex))
+			args = append(args, *requestData.Bio)
+			argIndex++
+		}
+		if requestData.FirstName != nil {
+			updates = append(updates, "first_name = $"+strconv.Itoa(argIndex))
+			args = append(args, *requestData.FirstName)
+			argIndex++
+		}
+		if requestData.LastName != nil {
+			updates = append(updates, "last_name = $"+strconv.Itoa(argIndex))
+			args = append(args, *requestData.LastName)
+			argIndex++
+		}
+		if requestData.Birthday != nil {
+			updates = append(updates, "birthday = $"+strconv.Itoa(argIndex))
+			args = append(args, *requestData.Birthday)
+			argIndex++
+		}
+
+		if len(updates) == 0 {
+			c.JSON(400, gin.H{"error": "No fields to update"})
+			return
+		}
+
+		// Ajouter l'ID utilisateur comme dernier argument
+		args = append(args, userID)
+
+		query := "UPDATE users SET " + updates[0]
+		for i := 1; i < len(updates); i++ {
+			query += ", " + updates[i]
+		}
+		query += " WHERE id = $" + strconv.Itoa(argIndex)
+
+		_, err := db.Exec(query, args...)
+		if err != nil {
+			log.Printf("Error updating profile: %v", err)
+			c.JSON(500, gin.H{"error": "Error updating profile"})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "Profile updated successfully"})
+	}
+}
+
+// UpdateEmailHandler met à jour l'email de l'utilisateur
+func UpdateEmailHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Récupérer l'ID de l'utilisateur depuis le contexte (middleware)
+		userIDVal, exists := c.Get("userID")
+		if !exists {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
+		userID, ok := userIDVal.(int)
+		if !ok {
+			c.JSON(500, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		var requestData struct {
+			Email string `json:"email"`
+		}
+
+		if err := c.BindJSON(&requestData); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request data"})
+			return
+		}
+
+		if requestData.Email == "" {
+			c.JSON(400, gin.H{"error": "Email is required"})
+			return
+		}
+
+		// Vérifier si l'email existe déjà
+		var emailExists bool
+		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND id != $2)", requestData.Email, userID).Scan(&emailExists)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+		if emailExists {
+			c.JSON(400, gin.H{"error": "Email already in use"})
+			return
+		}
+
+		_, err = db.Exec("UPDATE users SET email = $1 WHERE id = $2", requestData.Email, userID)
+		if err != nil {
+			log.Printf("Error updating email: %v", err)
+			c.JSON(500, gin.H{"error": "Error updating email"})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "Email updated successfully"})
+	}
+}
+
+// UpdateTagsHandler met à jour les tags/intérêts de l'utilisateur
+func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Récupérer l'ID de l'utilisateur depuis le contexte (middleware)
+		userIDVal, exists := c.Get("userID")
+		if !exists {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
+		userID, ok := userIDVal.(int)
+		if !ok {
+			c.JSON(500, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		var requestData struct {
+			Tags []string `json:"tags"`
+		}
+
+		if err := c.BindJSON(&requestData); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request data"})
+			return
+		}
+
+		// Commencer une transaction
+		tx, err := db.Begin()
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Error starting transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// Supprimer tous les tags existants de l'utilisateur
+		_, err = tx.Exec("DELETE FROM user_tags WHERE user_id = $1", userID)
+		if err != nil {
+			log.Printf("Error deleting old tags: %v", err)
+			c.JSON(500, gin.H{"error": "Error updating tags"})
+			return
+		}
+
+		// Ajouter les nouveaux tags
+		for _, tagName := range requestData.Tags {
+			if tagName == "" {
+				continue
+			}
+
+			// Vérifier si le tag existe, sinon le créer
+			var tagID int
+			err := tx.QueryRow("SELECT id FROM tags WHERE name = $1", tagName).Scan(&tagID)
+			if err == sql.ErrNoRows {
+				// Le tag n'existe pas, le créer
+				err = tx.QueryRow("INSERT INTO tags (name) VALUES ($1) RETURNING id", tagName).Scan(&tagID)
+				if err != nil {
+					log.Printf("Error creating tag: %v", err)
+					c.JSON(500, gin.H{"error": "Error creating tag"})
+					return
+				}
+			} else if err != nil {
+				log.Printf("Error checking tag: %v", err)
+				c.JSON(500, gin.H{"error": "Error checking tag"})
+				return
+			}
+
+			// Associer le tag à l'utilisateur
+			_, err = tx.Exec("INSERT INTO user_tags (user_id, tag_id) VALUES ($1, $2)", userID, tagID)
+			if err != nil {
+				log.Printf("Error associating tag: %v", err)
+				c.JSON(500, gin.H{"error": "Error associating tag"})
+				return
+			}
+		}
+
+		// Valider la transaction
+		if err := tx.Commit(); err != nil {
+			log.Printf("Error committing transaction: %v", err)
+			c.JSON(500, gin.H{"error": "Error committing changes"})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "Tags updated successfully"})
 	}
 }

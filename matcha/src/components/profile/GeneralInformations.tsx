@@ -10,21 +10,23 @@ import EmailEditor from "./editors/EmailEditor";
 import FirstnameEditor from "./editors/FirstnameEditor";
 import LastnameEditor from "./editors/LastnameEditor";
 import BirthdateEditor from "./editors/BirthdateEditor";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+import api from "../../services/api";
 
 export default function GeneralInformations() {
+  // Récupérer l'utilisateur connecté depuis l'API
+  const { currentUser, loading } = useCurrentUser();
+  
   const [editMode, setEditMode] = useState<number>(0);
-  const [interests, setInterests] = useState<string[]>(["prout", "cats"]);
+  const [interests, setInterests] = useState<string[]>([]);
   const [pictures, setPictures] = useState<File[]>([]);
   const [profilePicIdx, setProfilePicIdx] = useState<number>(0);
-  const [email, setEmail] = useState<string>("justineemunozz@gmail.com");
-  const [firstName, setFirstName] = useState<string>("Justine");
-  const [lastName, setLastName] = useState<string>("Munoz");
+  const [email, setEmail] = useState<string>("");
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
   const [gender, setGender] = useState<string>("Woman");
-  const [sexualPreferences, setSexualPreferences] =
-    useState<string>("Men & Women");
-  const [biography, setBiography] = useState<string>(
-    "I am a 25 years-old woman"
-  );
+  const [sexualPreferences, setSexualPreferences] = useState<string>("");
+  const [biography, setBiography] = useState<string>("");
   const [geolocalisation, setGeolocalisation] = useState<{
     choice: boolean;
     localisation: string;
@@ -33,9 +35,28 @@ export default function GeneralInformations() {
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [birthdate, setBirthdate] = useState<Date | null>(
-    new Date("2000-05-04")
-  );
+  const [birthdate, setBirthdate] = useState<Date | null>(null);
+
+  // Charger les données de l'utilisateur connecté
+  useEffect(() => {
+    if (currentUser) {
+      setEmail(currentUser.email || "");
+      setFirstName(currentUser.firstName || "");
+      setLastName(currentUser.lastName || "");
+      setGender(currentUser.gender || "Woman");
+      setSexualPreferences(currentUser.preferences || "");
+      setBiography(currentUser.bio || "");
+      setInterests(currentUser.interests || []);
+      setBirthdate(currentUser.birthdate || null);
+      
+      if (currentUser.location) {
+        setCurrentLocation({
+          latitude: currentUser.location.lat,
+          longitude: currentUser.location.lng,
+        });
+      }
+    }
+  }, [currentUser]);
 
   const [draftEmail, setDraftEmail] = useState<string>("");
   const [draftFirstName, setDraftFirstName] = useState<string>("");
@@ -155,7 +176,13 @@ export default function GeneralInformations() {
     setDraftGender(gender);
     setEditMode(1);
   };
-  const handleSaveGender = () => {
+  const handleSaveGender = async () => {
+    const result = await api.updateProfile({ gender: draftGender });
+    if (result.error) {
+      console.error("Error updating gender:", result.error);
+      alert("Failed to update gender: " + result.error);
+      return;
+    }
     setGender(draftGender);
     setEditMode(0);
   };
@@ -167,7 +194,13 @@ export default function GeneralInformations() {
     setDraftSexualPreferences(sexualPreferences);
     setEditMode(2);
   };
-  const handleSaveSexualPreferences = () => {
+  const handleSaveSexualPreferences = async () => {
+    const result = await api.updateProfile({ orientation: draftSexualPreferences });
+    if (result.error) {
+      console.error("Error updating sexual preferences:", result.error);
+      alert("Failed to update sexual preferences: " + result.error);
+      return;
+    }
     setSexualPreferences(draftSexualPreferences);
     setEditMode(0);
   };
@@ -179,7 +212,13 @@ export default function GeneralInformations() {
     setDraftBiography(biography);
     setEditMode(3);
   };
-  const handleSaveBiography = () => {
+  const handleSaveBiography = async () => {
+    const result = await api.updateProfile({ bio: draftBiography });
+    if (result.error) {
+      console.error("Error updating biography:", result.error);
+      alert("Failed to update biography: " + result.error);
+      return;
+    }
     setBiography(draftBiography);
     setEditMode(0);
   };
@@ -191,7 +230,13 @@ export default function GeneralInformations() {
     setDraftInterests([...interests]);
     setEditMode(4);
   };
-  const handleSaveInterests = () => {
+  const handleSaveInterests = async () => {
+    const result = await api.updateTags(draftInterests);
+    if (result.error) {
+      console.error("Error updating interests:", result.error);
+      alert("Failed to update interests: " + result.error);
+      return;
+    }
     setInterests(draftInterests);
     setEditMode(0);
   };
@@ -217,7 +262,13 @@ export default function GeneralInformations() {
     setDraftEmail(email);
     setEditMode(6);
   };
-  const handleSaveEmail = () => {
+  const handleSaveEmail = async () => {
+    const result = await api.updateEmail(draftEmail);
+    if (result.error) {
+      console.error("Error updating email:", result.error);
+      alert("Failed to update email: " + result.error);
+      return;
+    }
     setEmail(draftEmail);
     setEditMode(0);
   };
@@ -229,7 +280,13 @@ export default function GeneralInformations() {
     setDraftFirstName(firstName);
     setEditMode(7);
   };
-  const handleSaveFirstName = () => {
+  const handleSaveFirstName = async () => {
+    const result = await api.updateProfile({ first_name: draftFirstName });
+    if (result.error) {
+      console.error("Error updating first name:", result.error);
+      alert("Failed to update first name: " + result.error);
+      return;
+    }
     setFirstName(draftFirstName);
     setEditMode(0);
   };
@@ -241,7 +298,13 @@ export default function GeneralInformations() {
     setDraftLastName(lastName);
     setEditMode(8);
   };
-  const handleSaveLastName = () => {
+  const handleSaveLastName = async () => {
+    const result = await api.updateProfile({ last_name: draftLastName });
+    if (result.error) {
+      console.error("Error updating last name:", result.error);
+      alert("Failed to update last name: " + result.error);
+      return;
+    }
     setLastName(draftLastName);
     setEditMode(0);
   };
@@ -265,8 +328,16 @@ export default function GeneralInformations() {
     setDraftBirthdate(birthdate);
     setEditMode(10);
   };
-  const handleSaveBirthdate = () => {
-    if (isDraftBirthdateValid) {
+  const handleSaveBirthdate = async () => {
+    if (isDraftBirthdateValid && draftBirthdate) {
+      // Formater la date au format YYYY-MM-DD pour le backend
+      const formattedDate = draftBirthdate.toISOString().split('T')[0];
+      const result = await api.updateProfile({ birthday: formattedDate });
+      if (result.error) {
+        console.error("Error updating birthdate:", result.error);
+        alert("Failed to update birthdate: " + result.error);
+        return;
+      }
       setBirthdate(draftBirthdate);
       setEditMode(0);
     }

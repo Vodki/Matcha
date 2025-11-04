@@ -330,6 +330,35 @@ class ApiService {
       method: 'GET',
     });
   }
+
+  // Profile update endpoints
+  async updateProfile(data: {
+    gender?: string;
+    orientation?: string;
+    bio?: string;
+    first_name?: string;
+    last_name?: string;
+    birthday?: string;
+  }): Promise<ApiResponse> {
+    return this.request('/profile/update', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateEmail(email: string): Promise<ApiResponse> {
+    return this.request('/profile/email', {
+      method: 'PUT',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async updateTags(tags: string[]): Promise<ApiResponse> {
+    return this.request('/profile/tags', {
+      method: 'PUT',
+      body: JSON.stringify({ tags }),
+    });
+  }
 }
 
 export const api = new ApiService(API_BASE_URL);

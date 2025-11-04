@@ -69,6 +69,23 @@ function isInterestingFor(current: Profile, candidate: Profile) {
   return targets.includes(candidate.gender as Gender);
 }
 
+// Vérifie si deux profils sont mutuellement compatibles (orientation mutuelle)
+function areMutuallyCompatible(profile1: Profile, profile2: Profile) {
+  // Profile1 doit être intéressé par le genre de profile2
+  const profile1LikesProfile2Gender = isInterestingFor(profile1, profile2);
+  
+  // Profile2 doit être intéressé par le genre de profile1
+  const profile2LikesProfile1Gender = isInterestingFor(profile2, profile1);
+  
+  // Les deux doivent être intéressés par le genre de l'autre
+  // Par exemple:
+  // - Alice (Woman, "likes women") + Barbara (Woman, "likes women") = ✅ OK
+  // - Alice (Woman, "likes women") + Bob (Man, "likes women") = ❌ NON (Alice ne cherche pas d'hommes)
+  // - Alice (Woman, "likes men and women") + Barbara (Woman, "likes women") = ✅ OK (Alice accepte les femmes ET Barbara accepte les femmes)
+  // - Bob (Man, "likes women") + Alice (Woman, "likes men and women") = ✅ OK (Bob accepte les femmes ET Alice accepte les hommes)
+  return profile1LikesProfile2Gender && profile2LikesProfile1Gender;
+}
+
 function scoreCandidate(
   viewer: Profile,
   candidate: Profile,
@@ -184,7 +201,7 @@ export default function SuggestedProfilesPage() {
     if (!currentUser) return [];
     
     const base = allProfiles.filter(
-      (p) => p.id !== currentUser.id && isInterestingFor(currentUser, p)
+      (p) => p.id !== currentUser.id && areMutuallyCompatible(currentUser, p)
     );
     const enriched = base.map((p) => {
       const { score, distanceKm, commonTags } = scoreCandidate(currentUser, p);

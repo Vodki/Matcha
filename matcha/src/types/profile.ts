@@ -9,6 +9,7 @@ export interface Profile {
   id: string;
   firstName: string;
   lastName: string;
+  email?: string;
   images: string[];
   gender: string;
   preferences: string;
@@ -64,6 +65,7 @@ export function backendUserToProfile(backendUser: BackendUserProfile): Profile {
     id: backendUser.id.toString(),
     firstName: backendUser.first_name || backendUser.username || 'Unknown',
     lastName: backendUser.last_name || '',
+    email: backendUser.email || '',
     images: backendUser.avatar_url ? [backendUser.avatar_url] : [],
     gender: backendUser.gender || 'Not specified',
     preferences: backendUser.orientation || 'likes men and women',

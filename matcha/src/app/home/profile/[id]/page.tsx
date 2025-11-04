@@ -7,12 +7,83 @@ import { useEffect, useMemo, useState } from "react";
 import { ageFromBirthdate } from "../../../../utils/date";
 import { useFameRating } from "../../../../hooks/useFameRating";
 import { useUserProfile } from "../../../../hooks/useUserProfile";
+import { useCurrentUser } from "../../../../hooks/useCurrentUser";
+import { Profile } from "../../../../types/profile";
+
+// Fonctions utilitaires pour le calcul de compatibilité (identiques à home/page.tsx)
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const la1 = (lat1 * Math.PI) / 180;
+  const la2 = (lat2 * Math.PI) / 180;
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLng = Math.sin(dLng / 2);
+  const h =
+    sinDLat * sinDLat + Math.cos(la1) * Math.cos(la2) * sinDLng * sinDLng;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function normalizeTag(t: string) {
+  return t.trim().replace(/^#/, "").toLowerCase();
+}
+
+function asSetNormalized(tags: string[]) {
+  return new Set(tags.map(normalizeTag));
+}
+
+function countCommonTags(a: string[], b: string[]) {
+  const A = asSetNormalized(a);
+  const B = asSetNormalized(b);
+  let c = 0;
+  A.forEach((t) => {
+    if (B.has(t)) c++;
+  });
+  return c;
+}
+
+function scoreCandidate(
+  viewer: Profile,
+  candidate: Profile,
+  opts?: { distanceCutoffKm?: number }
+) {
+  const cutoff = opts?.distanceCutoffKm ?? 200;
+  const fame = (candidate.fameRating ?? 0) / 100;
+
+  let distanceKm = Infinity;
+  if (viewer.location && candidate.location) {
+    distanceKm = haversineKm(
+      viewer.location.lat,
+      viewer.location.lng,
+      candidate.location.lat,
+      candidate.location.lng
+    );
+  }
+  const distanceScore =
+    distanceKm === Infinity ? 0 : Math.max(0, 1 - distanceKm / cutoff);
+
+  const common = countCommonTags(viewer.interests, candidate.interests);
+  const denom = Math.max(
+    1,
+    new Set([
+      ...viewer.interests.map(normalizeTag),
+      ...candidate.interests.map(normalizeTag),
+    ]).size
+  );
+  const tagsScore = common / denom;
+
+  const base = 0.5 * distanceScore + 0.3 * tagsScore + 0.2 * fame;
+  return { score: Math.min(1, base), distanceKm, commonTags: common };
+}
 
 export default function UserProfilePage() {
   const { state, dispatch } = useGlobalAppContext();
   const params = useParams();
   const router = useRouter();
   const userId = params.id as string;
+
+  // Récupérer l'utilisateur connecté depuis l'API
+  const { currentUser } = useCurrentUser();
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -35,14 +106,10 @@ export default function UserProfilePage() {
   }, [userId, dispatch, recordView]);
 
   const matchScore = useMemo(() => {
-    if (!profile || !state.currentUser?.interests?.length) return 0;
-    const commonInterests = profile.interests.filter((tag: string) =>
-      state.currentUser.interests.includes(tag)
-    );
-    const score =
-      (commonInterests.length / state.currentUser.interests.length) * 100;
-    return Math.round(score);
-  }, [profile, state.currentUser.interests]);
+    if (!profile || !currentUser) return 0;
+    const { score } = scoreCandidate(currentUser, profile);
+    return Math.round(score * 100);
+  }, [profile, currentUser]);
 
   if (profileLoading) {
     return (
@@ -56,9 +123,8 @@ export default function UserProfilePage() {
     return <div className="text-center p-10">Profil non trouvé.</div>;
   }
 
-  const iLikeThem = state.likes.some(
-    (l) => l.likerId === state.currentUser.id && l.likedId === userId
-  );
+  // Utiliser isLiked du hook useFameRating au lieu du state local
+  const iLikeThem = isLiked;
   const theyLikeMe = state.likes.some(
     (l) => l.likerId === userId && l.likedId === state.currentUser.id
   );

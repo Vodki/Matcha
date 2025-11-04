@@ -1000,3 +1000,102 @@ func GetAllUsersHandler(db *sql.DB) gin.HandlerFunc {
 		c.JSON(200, gin.H{"users": users})
 	}
 }
+
+// GetUserByIdHandler retourne un utilisateur spécifique par son ID
+func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userIDStr := c.Param("userId")
+		userID, err := strconv.Atoi(userIDStr)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		var username, email, firstName, lastName string
+		var gender, orientation, bio, avatarURL sql.NullString
+		var birthday sql.NullTime
+		var fameRating sql.NullFloat64
+
+		err = db.QueryRow(`
+			SELECT username, email, first_name, last_name, gender, orientation, 
+			       birthday, bio, avatar_url, fame_rating
+			FROM users
+			WHERE id = $1 AND verified = true
+		`, userID).Scan(
+			&username, &email, &firstName, &lastName,
+			&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating,
+		)
+
+		if err == sql.ErrNoRows {
+			c.JSON(404, gin.H{"error": "User not found"})
+			return
+		} else if err != nil {
+			log.Printf("Error fetching user: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+
+		user := gin.H{
+			"id":         userID,
+			"username":   username,
+			"email":      email,
+			"first_name": firstName,
+			"last_name":  lastName,
+		}
+
+		if gender.Valid {
+			user["gender"] = gender.String
+		}
+		if orientation.Valid {
+			user["orientation"] = orientation.String
+		}
+		if birthday.Valid {
+			user["birthday"] = birthday.Time.Format("2006-01-02")
+		}
+		if bio.Valid {
+			user["bio"] = bio.String
+		}
+		if avatarURL.Valid {
+			user["avatar_url"] = avatarURL.String
+		}
+		if fameRating.Valid {
+			user["fame_rating"] = fameRating.Float64
+		} else {
+			user["fame_rating"] = 0.0
+		}
+
+		// Récupérer les tags de l'utilisateur
+		tags := []string{}
+		tagRows, err := db.Query(`
+			SELECT t.name 
+			FROM tags t 
+			JOIN user_tags ut ON t.id = ut.tag_id 
+			WHERE ut.user_id = $1
+		`, userID)
+		if err == nil {
+			defer tagRows.Close()
+			for tagRows.Next() {
+				var tagName string
+				if err := tagRows.Scan(&tagName); err == nil {
+					tags = append(tags, tagName)
+				}
+			}
+		}
+		user["tags"] = tags
+
+		// Récupérer la localisation de l'utilisateur
+		var lat, lon sql.NullFloat64
+		err = db.QueryRow(`
+			SELECT lat, lon 
+			FROM user_locations 
+			WHERE user_id = $1
+		`, userID).Scan(&lat, &lon)
+
+		if err == nil && lat.Valid && lon.Valid {
+			user["latitude"] = lat.Float64
+			user["longitude"] = lon.Float64
+		}
+
+		c.JSON(200, user)
+	}
+}

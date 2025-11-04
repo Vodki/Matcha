@@ -309,6 +309,27 @@ class ApiService {
       method: 'GET',
     });
   }
+
+  async getUserById(userId: string): Promise<ApiResponse<{
+    id: number;
+    username: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    gender?: string;
+    orientation?: string;
+    birthday?: string;
+    bio?: string;
+    avatar_url?: string;
+    fame_rating: number;
+    tags?: string[];
+    latitude?: number;
+    longitude?: number;
+  }>> {
+    return this.request(`/user/${userId}`, {
+      method: 'GET',
+    });
+  }
 }
 
 export const api = new ApiService(API_BASE_URL);

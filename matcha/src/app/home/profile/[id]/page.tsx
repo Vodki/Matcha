@@ -6,6 +6,7 @@ import { useGlobalAppContext } from "@/contexts/GlobalAppContext";
 import { useEffect, useMemo, useState } from "react";
 import { ageFromBirthdate } from "../../../../utils/date";
 import { useFameRating } from "../../../../hooks/useFameRating";
+import { useUserProfile } from "../../../../hooks/useUserProfile";
 
 export default function UserProfilePage() {
   const { state, dispatch } = useGlobalAppContext();
@@ -15,7 +16,12 @@ export default function UserProfilePage() {
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const profile = state.users.find((u) => u.id === userId);
+  // Récupérer le profil depuis l'API
+  const { profile: apiProfile, loading: profileLoading, error: profileError } = useUserProfile(userId);
+  
+  // Fallback sur le state global si l'API échoue
+  const stateProfile = state.users.find((u) => u.id === userId);
+  const profile = apiProfile || stateProfile;
 
   // Hook pour gérer le fame rating, les likes et les vues
   const { stats, isLiked, loading: statsLoading, recordView, toggleLike } = useFameRating(userId);
@@ -38,7 +44,15 @@ export default function UserProfilePage() {
     return Math.round(score);
   }, [profile, state.currentUser.interests]);
 
-  if (!profile) {
+  if (profileLoading) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center">
+        <span className="loading loading-spinner loading-lg"></span>
+      </div>
+    );
+  }
+
+  if (profileError || !profile) {
     return <div className="text-center p-10">Profil non trouvé.</div>;
   }
 
@@ -320,9 +334,9 @@ export default function UserProfilePage() {
             </div>
           </div>
 
-          <p className="mt-4 text-sm text-base-content/50">
+          <div className="mt-4">
             {statsLoading ? (
-              "Loading stats..."
+              <p className="text-sm text-base-content/50">Loading stats...</p>
             ) : (
               <div className="stats shadow">
                 <div className="stat place-items-center">
@@ -346,7 +360,7 @@ export default function UserProfilePage() {
                 </div>
               </div>
             )}
-          </p>
+          </div>
         </div>
       </div>
     </div>

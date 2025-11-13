@@ -2,9 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"matcha/utils"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -796,6 +798,178 @@ func CheckLikeStatusHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// GetProfileViewersHandler retourne la liste des profils qui ont vu le profil de l'utilisateur
+func GetProfileViewersHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userIDStr := c.Param("userId")
+		userID, err := strconv.Atoi(userIDStr)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		// Récupérer tous les utilisateurs qui ont vu ce profil
+		rows, err := db.Query(`
+			SELECT DISTINCT u.id, u.username, u.first_name, u.last_name, u.email, 
+			       u.gender, u.orientation, u.birthday, u.bio, u.fame_rating,
+			       COALESCE(ul.lat, 0) as latitude, COALESCE(ul.lon, 0) as longitude,
+			       COALESCE(string_agg(t.name, ','), '') as tags,
+			       MAX(pv.viewed_at) as last_viewed_at
+			FROM users u
+			JOIN profile_views pv ON u.id = pv.viewer_id
+			LEFT JOIN user_locations ul ON u.id = ul.user_id
+			LEFT JOIN user_tags ut ON u.id = ut.user_id
+			LEFT JOIN tags t ON ut.tag_id = t.id
+			WHERE pv.viewed_id = $1
+			GROUP BY u.id, ul.lat, ul.lon
+			ORDER BY last_viewed_at DESC
+		`, userID)
+
+		if err != nil {
+			log.Printf("Error querying viewers: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+		defer rows.Close()
+
+		var viewers []map[string]interface{}
+		for rows.Next() {
+			var id int
+			var username, firstName, lastName, email string
+			var gender, orientation, bio, tags sql.NullString
+			var birthday sql.NullTime
+			var fameRating sql.NullFloat64
+			var latitude, longitude sql.NullFloat64
+
+			err := rows.Scan(&id, &username, &firstName, &lastName, &email,
+				&gender, &orientation, &birthday, &bio, &fameRating,
+				&latitude, &longitude, &tags)
+			if err != nil {
+				log.Printf("Error scanning viewer row: %v", err)
+				continue
+			}
+
+			viewer := map[string]interface{}{
+				"id":          id,
+				"username":    username,
+				"first_name":  firstName,
+				"last_name":   lastName,
+				"email":       email,
+				"gender":      gender.String,
+				"orientation": orientation.String,
+				"birthday":    birthday.Time,
+				"bio":         bio.String,
+				"fame_rating": fameRating.Float64,
+				"latitude":    latitude.Float64,
+				"longitude":   longitude.Float64,
+			}
+
+			// Parse tags
+			if tags.String != "" {
+				viewer["tags"] = strings.Split(tags.String, ",")
+			} else {
+				viewer["tags"] = []string{}
+			}
+
+			viewers = append(viewers, viewer)
+		}
+
+		if err = rows.Err(); err != nil {
+			log.Printf("Error iterating viewers: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+
+		c.JSON(200, gin.H{"viewers": viewers})
+	}
+}
+
+// GetProfileLikersHandler retourne la liste des profils qui ont liké le profil de l'utilisateur
+func GetProfileLikersHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userIDStr := c.Param("userId")
+		userID, err := strconv.Atoi(userIDStr)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		// Récupérer tous les utilisateurs qui ont liké ce profil
+		rows, err := db.Query(`
+			SELECT DISTINCT u.id, u.username, u.first_name, u.last_name, u.email, 
+			       u.gender, u.orientation, u.birthday, u.bio, u.fame_rating,
+			       COALESCE(ul.lat, 0) as latitude, COALESCE(ul.lon, 0) as longitude,
+			       COALESCE(string_agg(t.name, ','), '') as tags,
+			       MAX(pl.liked_at) as last_liked_at
+			FROM users u
+			JOIN profile_likes pl ON u.id = pl.liker_id
+			LEFT JOIN user_locations ul ON u.id = ul.user_id
+			LEFT JOIN user_tags ut ON u.id = ut.user_id
+			LEFT JOIN tags t ON ut.tag_id = t.id
+			WHERE pl.liked_id = $1
+			GROUP BY u.id, ul.lat, ul.lon
+			ORDER BY last_liked_at DESC
+		`, userID)
+
+		if err != nil {
+			log.Printf("Error querying likers: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+		defer rows.Close()
+
+		var likers []map[string]interface{}
+		for rows.Next() {
+			var id int
+			var username, firstName, lastName, email string
+			var gender, orientation, bio, tags sql.NullString
+			var birthday sql.NullTime
+			var fameRating sql.NullFloat64
+			var latitude, longitude sql.NullFloat64
+
+			err := rows.Scan(&id, &username, &firstName, &lastName, &email,
+				&gender, &orientation, &birthday, &bio, &fameRating,
+				&latitude, &longitude, &tags)
+			if err != nil {
+				log.Printf("Error scanning liker row: %v", err)
+				continue
+			}
+
+			liker := map[string]interface{}{
+				"id":          id,
+				"username":    username,
+				"first_name":  firstName,
+				"last_name":   lastName,
+				"email":       email,
+				"gender":      gender.String,
+				"orientation": orientation.String,
+				"birthday":    birthday.Time,
+				"bio":         bio.String,
+				"fame_rating": fameRating.Float64,
+				"latitude":    latitude.Float64,
+				"longitude":   longitude.Float64,
+			}
+
+			// Parse tags
+			if tags.String != "" {
+				liker["tags"] = strings.Split(tags.String, ",")
+			} else {
+				liker["tags"] = []string{}
+			}
+
+			likers = append(likers, liker)
+		}
+
+		if err = rows.Err(); err != nil {
+			log.Printf("Error iterating likers: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+
+		c.JSON(200, gin.H{"likers": likers})
+	}
+}
+
 // GetCurrentUserHandler retourne les informations de l'utilisateur connecté
 func GetCurrentUserHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -1320,5 +1494,280 @@ func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(200, gin.H{"message": "Tags updated successfully"})
+	}
+}
+
+// GetSuggestionsHandler retourne les suggestions de profils filtrées par compatibilité mutuelle
+func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Récupérer l'ID de l'utilisateur connecté
+		userIDVal, exists := c.Get("userID")
+		if !exists {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
+		userID, ok := userIDVal.(int)
+		if !ok {
+			c.JSON(500, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		// Récupérer les préférences d'orientation de l'utilisateur connecté
+		var currentUserOrientation string
+		err := db.QueryRow("SELECT COALESCE(orientation, 'likes men and women') FROM users WHERE id = $1", userID).Scan(&currentUserOrientation)
+		if err != nil {
+			log.Printf("Error fetching current user orientation: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+
+		// Récupérer le genre de l'utilisateur connecté
+		var currentUserGender string
+		err = db.QueryRow("SELECT COALESCE(gender, 'Woman') FROM users WHERE id = $1", userID).Scan(&currentUserGender)
+		if err != nil {
+			log.Printf("Error fetching current user gender: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+
+		// Déterminer les genres cibles pour l'utilisateur connecté
+		// Parsons l'orientation correctement
+		var targetGenders []string
+		lowerOrientation := strings.ToLower(strings.TrimSpace(currentUserOrientation))
+
+		// Check the exact format: "likes X"
+		if lowerOrientation == "likes men and women" || lowerOrientation == "likes both" || lowerOrientation == "both" {
+			targetGenders = []string{"Man", "Woman"}
+		} else if lowerOrientation == "likes men" || lowerOrientation == "men" {
+			targetGenders = []string{"Man"}
+		} else if lowerOrientation == "likes women" || lowerOrientation == "women" {
+			targetGenders = []string{"Woman"}
+		} else if strings.HasSuffix(lowerOrientation, "men and women") {
+			targetGenders = []string{"Man", "Woman"}
+		} else if strings.HasSuffix(lowerOrientation, "men") {
+			targetGenders = []string{"Man"}
+		} else if strings.HasSuffix(lowerOrientation, "women") {
+			targetGenders = []string{"Woman"}
+		} else {
+			// Default fallback
+			targetGenders = []string{"Man", "Woman"}
+		}
+
+		// Créer placeholders pour IN clause et construire la clause de compatibilité d'orientation
+		placeholders := ""
+		orientationClauses := []string{}
+		args := []interface{}{userID}
+
+		for i, gender := range targetGenders {
+			if i > 0 {
+				placeholders += ","
+			}
+			placeholders += "$" + strconv.Itoa(len(args)+1)
+			args = append(args, gender)
+
+			// Pour chaque genre cible, ajouter une clause qui vérifie que le candidat de ce genre
+			// aime le genre de l'utilisateur connecté
+			if gender == "Man" {
+				// Si on cherche des hommes, ils doivent aimer les femmes (si current user est Woman)
+				// ou aimer les hommes (si current user est Man)
+				if currentUserGender == "Woman" {
+					orientationClauses = append(orientationClauses,
+						"(u.gender = 'Man' AND (u.orientation = 'likes women' OR u.orientation = 'likes men and women'))")
+				} else if currentUserGender == "Man" {
+					orientationClauses = append(orientationClauses,
+						"(u.gender = 'Man' AND (u.orientation = 'likes men' OR u.orientation = 'likes men and women'))")
+				}
+			} else if gender == "Woman" {
+				// Si on cherche des femmes, elles doivent aimer les femmes (si current user est Woman)
+				// ou aimer les hommes (si current user est Man)
+				if currentUserGender == "Woman" {
+					orientationClauses = append(orientationClauses,
+						"(u.gender = 'Woman' AND (u.orientation = 'likes women' OR u.orientation = 'likes men and women'))")
+				} else if currentUserGender == "Man" {
+					orientationClauses = append(orientationClauses,
+						"(u.gender = 'Woman' AND (u.orientation = 'likes men' OR u.orientation = 'likes men and women'))")
+				}
+			}
+		}
+
+		orientationFilter := strings.Join(orientationClauses, " OR ")
+
+		// Récupérer les paramètres de filtrage optionnels depuis query params
+		minAgeStr := c.DefaultQuery("minAge", "")
+		maxAgeStr := c.DefaultQuery("maxAge", "")
+		minFameStr := c.DefaultQuery("minFame", "")
+		maxDistanceStr := c.DefaultQuery("maxDistance", "")
+
+		// Construire les clauses de filtrage supplémentaires
+		var additionalFilters []string
+
+		// Filtre par âge si spécifié
+		if minAgeStr != "" || maxAgeStr != "" {
+			minAge := 18
+			maxAge := 99
+
+			if minAgeStr != "" {
+				if v, err := strconv.Atoi(minAgeStr); err == nil {
+					minAge = v
+				}
+			}
+			if maxAgeStr != "" {
+				if v, err := strconv.Atoi(maxAgeStr); err == nil {
+					maxAge = v
+				}
+			}
+
+			currentYear := time.Now().Year()
+			maxBirthYear := currentYear - minAge
+			minBirthYear := currentYear - maxAge
+
+			additionalFilters = append(additionalFilters,
+				fmt.Sprintf("EXTRACT(YEAR FROM u.birthday) BETWEEN %d AND %d", minBirthYear, maxBirthYear))
+		}
+
+		// Filtre par fame rating si spécifié
+		if minFameStr != "" {
+			if v, err := strconv.ParseFloat(minFameStr, 64); err == nil {
+				additionalFilters = append(additionalFilters, fmt.Sprintf("u.fame_rating >= %.2f", v))
+			}
+		}
+
+		// Filtre par distance si spécifié
+		if maxDistanceStr != "" {
+			if maxDist, err := strconv.ParseFloat(maxDistanceStr, 64); err == nil && maxDist > 0 {
+				// Récupérer la localisation de l'utilisateur connecté
+				var userLat, userLon sql.NullFloat64
+				err = db.QueryRow(`
+					SELECT lat, lon FROM user_locations WHERE user_id = $1
+				`, userID).Scan(&userLat, &userLon)
+
+				if err == nil && userLat.Valid && userLon.Valid {
+					// Formule Haversine : 6371 km = rayon de la terre
+					additionalFilters = append(additionalFilters, fmt.Sprintf(`
+						(6371 * 2 * ASIN(SQRT(
+							POWER(SIN(RADIANS((u_loc.lat - %f) / 2)), 2) + 
+							COS(RADIANS(%f)) * COS(RADIANS(u_loc.lat)) * 
+							POWER(SIN(RADIANS((u_loc.lon - %f) / 2)), 2)
+						)) <= %f OR u_loc.lat IS NULL)
+					`, userLat.Float64, userLat.Float64, userLon.Float64, maxDist))
+				}
+			}
+		}
+
+		// Construire la clause WHERE complète
+		additionalFilterClause := ""
+		if len(additionalFilters) > 0 {
+			additionalFilterClause = " AND " + strings.Join(additionalFilters, " AND ")
+		}
+
+		// Récupérer tous les utilisateurs vérifiés dont le genre correspond aux préférences
+		// ET dont l'orientation accepte le genre de l'utilisateur connecté
+		query := `
+			SELECT u.id, u.username, u.first_name, u.last_name, u.email, u.gender, u.orientation, 
+			       u.birthday, u.bio, u.avatar_url, u.fame_rating
+			FROM users u
+			LEFT JOIN user_locations u_loc ON u.id = u_loc.user_id
+			WHERE u.verified = true 
+			  AND u.id != $1
+			  AND u.gender IN (` + placeholders + `)
+			  AND (` + orientationFilter + `)` + additionalFilterClause
+
+		// DEBUG: Log the query and parameters
+		log.Printf("DEBUG GetSuggestions - UserID: %d, Gender: %s, Orientation: %s", userID, currentUserGender, currentUserOrientation)
+		log.Printf("DEBUG GetSuggestions - Target genders: %v", targetGenders)
+		log.Printf("DEBUG GetSuggestions - Orientation filter: %s", orientationFilter)
+		log.Printf("DEBUG GetSuggestions - Query: %s", query)
+		log.Printf("DEBUG GetSuggestions - Args: %v", args)
+
+		rows, err := db.Query(query, args...)
+		if err != nil {
+			log.Printf("Error querying suggestions: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+		defer rows.Close()
+
+		users := []gin.H{}
+		for rows.Next() {
+			var userID int
+			var username, email, firstName, lastName string
+			var gender, orientation, bio, avatarURL sql.NullString
+			var birthday sql.NullTime
+			var fameRating sql.NullFloat64
+
+			err := rows.Scan(
+				&userID, &username, &firstName, &lastName, &email,
+				&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating,
+			)
+			if err != nil {
+				log.Printf("Error scanning user: %v", err)
+				continue
+			}
+
+			user := gin.H{
+				"id":         userID,
+				"username":   username,
+				"email":      email,
+				"first_name": firstName,
+				"last_name":  lastName,
+			}
+
+			if gender.Valid {
+				user["gender"] = gender.String
+			}
+			if orientation.Valid {
+				user["orientation"] = orientation.String
+			}
+			if birthday.Valid {
+				user["birthday"] = birthday.Time.Format("2006-01-02")
+			}
+			if bio.Valid {
+				user["bio"] = bio.String
+			}
+			if avatarURL.Valid {
+				user["avatar_url"] = avatarURL.String
+			}
+			if fameRating.Valid {
+				user["fame_rating"] = fameRating.Float64
+			} else {
+				user["fame_rating"] = 0.0
+			}
+
+			// Récupérer les tags de l'utilisateur
+			tags := []string{}
+			tagRows, err := db.Query(`
+				SELECT t.name 
+				FROM tags t 
+				JOIN user_tags ut ON t.id = ut.tag_id 
+				WHERE ut.user_id = $1
+			`, userID)
+			if err == nil {
+				defer tagRows.Close()
+				for tagRows.Next() {
+					var tagName string
+					if err := tagRows.Scan(&tagName); err == nil {
+						tags = append(tags, tagName)
+					}
+				}
+			}
+			user["tags"] = tags
+
+			// Récupérer la localisation de l'utilisateur
+			var lat, lon sql.NullFloat64
+			err = db.QueryRow(`
+				SELECT lat, lon 
+				FROM user_locations 
+				WHERE user_id = $1
+			`, userID).Scan(&lat, &lon)
+
+			if err == nil && lat.Valid && lon.Valid {
+				user["latitude"] = lat.Float64
+				user["longitude"] = lon.Float64
+			}
+
+			users = append(users, user)
+		}
+
+		c.JSON(200, gin.H{"users": users})
 	}
 }

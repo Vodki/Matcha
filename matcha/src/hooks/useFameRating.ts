@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { Profile } from '../types/profile';
 
 interface ProfileStats {
   views: number;
@@ -14,6 +15,8 @@ export function useFameRating(userId: string) {
     fame_rating: 0,
   });
   const [isLiked, setIsLiked] = useState(false);
+  const [viewers, setViewers] = useState<any[]>([]);
+  const [likers, setLikers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,12 +49,31 @@ export function useFameRating(userId: string) {
     }
   }, [userId]);
 
+  // Récupérer la liste des utilisateurs qui ont vu ce profil
+  const fetchViewers = useCallback(async () => {
+    const result = await api.getProfileViewers(userId);
+    
+    if (result.data?.viewers) {
+      setViewers(result.data.viewers);
+    }
+  }, [userId]);
+
+  // Récupérer la liste des utilisateurs qui ont liké ce profil
+  const fetchLikers = useCallback(async () => {
+    const result = await api.getProfileLikers(userId);
+    
+    if (result.data?.likers) {
+      setLikers(result.data.likers);
+    }
+  }, [userId]);
+
   // Enregistrer une vue de profil
   const recordView = useCallback(async () => {
     await api.recordProfileView(userId);
-    // Rafraîchir les stats après avoir enregistré la vue
+    // Rafraîchir les stats et les viewers après avoir enregistré la vue
     fetchStats();
-  }, [userId, fetchStats]);
+    fetchViewers();
+  }, [userId, fetchStats, fetchViewers]);
 
   // Toggle like/unlike
   const toggleLike = useCallback(async () => {
@@ -64,20 +86,25 @@ export function useFameRating(userId: string) {
 
     if (result.data) {
       setIsLiked(result.data.liked);
-      // Rafraîchir les stats après le toggle
+      // Rafraîchir les stats et les likers après le toggle
       fetchStats();
+      fetchLikers();
     }
-  }, [userId, fetchStats]);
+  }, [userId, fetchStats, fetchLikers]);
 
   // Charger les données initiales
   useEffect(() => {
     fetchStats();
     fetchLikeStatus();
-  }, [fetchStats, fetchLikeStatus]);
+    fetchViewers();
+    fetchLikers();
+  }, [fetchStats, fetchLikeStatus, fetchViewers, fetchLikers]);
 
   return {
     stats,
     isLiked,
+    viewers,
+    likers,
     loading,
     error,
     recordView,

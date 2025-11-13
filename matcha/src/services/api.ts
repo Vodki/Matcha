@@ -263,6 +263,18 @@ class ApiService {
     });
   }
 
+  async getProfileViewers(userId: string): Promise<ApiResponse<any>> {
+    return this.request(`/profile/${userId}/viewers`, {
+      method: 'GET',
+    });
+  }
+
+  async getProfileLikers(userId: string): Promise<ApiResponse<any>> {
+    return this.request(`/profile/${userId}/likers`, {
+      method: 'GET',
+    });
+  }
+
   // User endpoints
   async getCurrentUser(): Promise<ApiResponse<{
     id: number;
@@ -306,6 +318,50 @@ class ApiService {
     }>;
   }>> {
     return this.request('/users', {
+      method: 'GET',
+    });
+  }
+
+  async getSuggestions(filters?: {
+    minAge?: number;
+    maxAge?: number;
+    minFame?: number;
+    maxDistance?: number;
+  }): Promise<ApiResponse<{
+    users: Array<{
+      id: number;
+      username: string;
+      email: string;
+      first_name: string;
+      last_name: string;
+      gender?: string;
+      orientation?: string;
+      birthday?: string;
+      bio?: string;
+      avatar_url?: string;
+      fame_rating: number;
+      tags?: string[];
+      latitude?: number;
+      longitude?: number;
+    }>;
+  }>> {
+    let url = '/suggestions';
+    
+    // Construire la query string avec les filtres
+    if (filters) {
+      const params = new URLSearchParams();
+      if (filters.minAge !== undefined) params.append('minAge', filters.minAge.toString());
+      if (filters.maxAge !== undefined) params.append('maxAge', filters.maxAge.toString());
+      if (filters.minFame !== undefined) params.append('minFame', filters.minFame.toString());
+      if (filters.maxDistance !== undefined) params.append('maxDistance', filters.maxDistance.toString());
+      
+      const queryString = params.toString();
+      if (queryString) {
+        url += '?' + queryString;
+      }
+    }
+    
+    return this.request(url, {
       method: 'GET',
     });
   }

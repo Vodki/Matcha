@@ -51,9 +51,23 @@ function countCommonTags(a: string[], b: string[]) {
 function parseOrientation(pref?: string): OrientationStr {
   if (!pref) return "likes men and women";
   const p = pref.toLowerCase().trim();
-  if (p.includes("men") && p.includes("women")) return "likes men and women";
-  if (p.includes("men")) return "likes men";
-  if (p.includes("women")) return "likes women";
+  
+  // Vérifier les patterns exacts pour éviter les faux positifs ("women" contient "men")
+  if (p === "likes men and women" || p === "both" || p === "likes both") {
+    return "likes men and women";
+  }
+  if (p === "likes men" || p === "men") {
+    return "likes men";
+  }
+  if (p === "likes women" || p === "women") {
+    return "likes women";
+  }
+  
+  // Fallback avec suffix check pour être sûr
+  if (p.endsWith("men and women")) return "likes men and women";
+  if (p.endsWith("women")) return "likes women";
+  if (p.endsWith("men")) return "likes men";
+  
   return "likes men and women";
 }
 
@@ -126,14 +140,6 @@ export default function SuggestedProfilesPage() {
   // Récupérer l'utilisateur connecté
   const { currentUser, loading: loadingCurrentUser, error: currentUserError } = useCurrentUser();
   
-  // Récupérer les profils depuis l'API
-  const { profiles: backendProfiles, loading, error } = useProfiles();
-
-  // Convertir les profils backend en profils frontend
-  const allProfiles = useMemo(() => {
-    return backendProfiles.map(backendUserToProfile);
-  }, [backendProfiles]);
-
   const myAge = currentUser?.birthdate
     ? ageFromBirthdate(currentUser.birthdate)
     : 18;
@@ -155,7 +161,7 @@ export default function SuggestedProfilesPage() {
     sortDir: "desc",
     minAge: minAgeAll,
     maxAge: maxAgeAll,
-    maxDistanceKm: 200,
+    maxDistanceKm: 999999,
     minFame: 0,
     selectedTags: [],
   };
@@ -189,6 +195,22 @@ export default function SuggestedProfilesPage() {
   const setActiveQueryInput =
     activeTab === "suggestions" ? setSuggestionsInput : setSearchInput;
 
+  // Récupérer les filtres appliqués
+  const queryToApply = activeTab === "suggestions" ? suggestionsQuery : searchQuery;
+
+  // Récupérer les profils depuis l'API avec les filtres appliqués
+  const { profiles: backendProfiles, loading, error } = useProfiles({
+    minAge: queryToApply.minAge,
+    maxAge: queryToApply.maxAge,
+    minFame: queryToApply.minFame,
+    maxDistance: queryToApply.maxDistanceKm,
+  });
+
+  // Convertir les profils backend en profils frontend
+  const allProfiles = useMemo(() => {
+    return backendProfiles.map(backendUserToProfile);
+  }, [backendProfiles]);
+
   const allAvailableTags = useMemo(() => {
     const tagSet = new Set<string>();
     allProfiles.forEach((p) => {
@@ -200,9 +222,19 @@ export default function SuggestedProfilesPage() {
   const displayedProfiles = useMemo(() => {
     if (!currentUser) return [];
     
-    const base = allProfiles.filter(
-      (p) => p.id !== currentUser.id && areMutuallyCompatible(currentUser, p)
-    );
+    // DEBUG: Log des profils reçus
+    console.log("=== DEBUG displayedProfiles ===");
+    console.log("Current user:", {
+      id: currentUser.id,
+      gender: currentUser.gender,
+      preferences: currentUser.preferences
+    });
+    console.log("Total profiles from API:", allProfiles.length);
+    
+    // Les profils sont déjà filtrés par le backend, on ne fait que les trier
+    const base = allProfiles.filter((p) => p.id !== currentUser.id);
+    console.log("After removing current user:", base.length);
+    
     const enriched = base.map((p) => {
       const { score, distanceKm, commonTags } = scoreCandidate(currentUser, p);
       return {
@@ -217,22 +249,8 @@ export default function SuggestedProfilesPage() {
     const queryToApply =
       activeTab === "suggestions" ? suggestionsQuery : searchQuery;
 
-    const filtered = enriched.filter((e) => {
-      const ageOk =
-        e.age >= queryToApply.minAge && e.age <= queryToApply.maxAge;
-      const fameOk = (e.profile.fameRating ?? 0) >= queryToApply.minFame;
-      const distanceOk = e.distanceKm <= queryToApply.maxDistanceKm;
-
-      const tagsOk =
-        queryToApply.selectedTags.length === 0 ||
-        e.profile.interests.some((interest) =>
-          queryToApply.selectedTags.includes(normalizeTag(interest))
-        );
-
-      return ageOk && fameOk && tagsOk && distanceOk;
-    });
-
-    const sorted = [...filtered].sort((a, b) => {
+    // Juste trier, pas de filtrage supplémentaire (tout est fait au backend)
+    const sorted = [...enriched].sort((a, b) => {
       const mult = queryToApply.sortDir === "asc" ? 1 : -1;
       switch (queryToApply.sortBy) {
         case "age":

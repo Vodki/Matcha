@@ -25,6 +25,7 @@ func RegisterRoutes(router *gin.Engine, db *sql.DB) {
 		// User endpoints
 		protected.GET("/me", GetCurrentUserHandler(db))
 		protected.GET("/users", GetAllUsersHandler(db))
+		protected.GET("/suggestions", GetSuggestionsHandler(db))
 		protected.GET("/user/:userId", GetUserByIdHandler(db))
 
 		protected.GET("/tags", GetUserTagsHandler(db))
@@ -41,6 +42,8 @@ func RegisterRoutes(router *gin.Engine, db *sql.DB) {
 		protected.POST("/profile/:userId/like", ToggleProfileLikeHandler(db))
 		protected.GET("/profile/:userId/stats", GetProfileStatsHandler(db))
 		protected.GET("/profile/:userId/like-status", CheckLikeStatusHandler(db))
+		protected.GET("/profile/:userId/viewers", GetProfileViewersHandler(db))
+		protected.GET("/profile/:userId/likers", GetProfileLikersHandler(db))
 
 		// Profile update endpoints
 		protected.PUT("/profile/update", UpdateProfileHandler(db))

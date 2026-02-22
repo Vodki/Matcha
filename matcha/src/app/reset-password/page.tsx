@@ -27,7 +27,6 @@ function ResetPasswordForm() {
     setError('');
     setLoading(true);
 
-    // Validation
     if (!password || !confirmPassword) {
       setError('Please fill in all fields');
       setLoading(false);
@@ -59,7 +58,6 @@ function ResetPasswordForm() {
         setError(result.error);
       } else {
         setSuccess(true);
-        // Redirect to sign-in after 3 seconds
         setTimeout(() => {
           router.push('/sign-in');
         }, 3000);

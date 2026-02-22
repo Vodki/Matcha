@@ -8,14 +8,16 @@ import { useFameRating } from "../../hooks/useFameRating";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 
 type StatsInformationProps = {
+  userId?: string;
   onSeeProfile?: (profile: Profile) => void;
 };
 
 export default function StatsInformation({
+  userId: userIdProp,
   onSeeProfile,
 }: StatsInformationProps) {
   const { currentUser } = useCurrentUser();
-  const userId = currentUser?.id || "";
+  const userId = userIdProp || currentUser?.id || "";
   const { stats, viewers, likers, loading } = useFameRating(userId);
 
   return (

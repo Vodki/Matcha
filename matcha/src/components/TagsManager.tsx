@@ -3,10 +3,6 @@
 import React, { useState } from "react";
 import { useTags } from "../hooks/useTags";
 
-/**
- * Composant exemple d'utilisation des tags avec l'API backend
- * Peut être utilisé dans n'importe quelle page protégée
- */
 export default function TagsManager() {
   const { tags, addTag, removeTag, isLoading, error } = useTags();
   const [newTagName, setNewTagName] = useState<string>("");

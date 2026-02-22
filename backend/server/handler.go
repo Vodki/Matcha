@@ -5,12 +5,28 @@ import (
 	"fmt"
 	"log"
 	"matcha/utils"
+	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
+	const earthRadiusKm = 6371.0
+
+	dLat := (lat2 - lat1) * math.Pi / 180.0
+	dLon := (lon2 - lon1) * math.Pi / 180.0
+
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*math.Pi/180.0)*math.Cos(lat2*math.Pi/180.0)*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return earthRadiusKm * c
+}
 
 func RegisterHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -31,7 +47,6 @@ func RegisterHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Validate password requirements
 		if err := utils.ValidatePassword(password); err != nil {
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
@@ -154,7 +169,6 @@ func LogoutHandler(db *sql.DB) gin.HandlerFunc {
 
 func PostTagHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get userID from context (set by AuthMiddleware)
 		userIDVal, exists := c.Get("userID")
 		if !exists {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
@@ -166,14 +180,12 @@ func PostTagHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get tag name from URL params
 		tagName := c.Query("tag")
 		if tagName == "" {
 			c.JSON(400, gin.H{"error": "Tag name is required"})
 			return
 		}
 
-		// Insert tag if it doesn't exist, get tag ID
 		var tagID int
 		err := db.QueryRow("SELECT id FROM tags WHERE name = $1", tagName).Scan(&tagID)
 		if err == sql.ErrNoRows {
@@ -187,7 +199,6 @@ func PostTagHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Assign tag to user if not already assigned
 		_, err = db.Exec(
 			"INSERT INTO user_tags (user_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
 			userID, tagID,
@@ -261,7 +272,6 @@ func DeleteTagHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get tag ID from tag name
 		var tagID int
 		err := db.QueryRow("SELECT id FROM tags WHERE name = $1", tagName).Scan(&tagID)
 		if err == sql.ErrNoRows {
@@ -272,7 +282,6 @@ func DeleteTagHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if the tag is associated with the user
 		var existsForUser bool
 		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM user_tags WHERE user_id = $1 AND tag_id = $2)", userID, tagID).Scan(&existsForUser)
 		if err != nil {
@@ -284,7 +293,6 @@ func DeleteTagHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Delete the user-tag association
 		_, err = db.Exec("DELETE FROM user_tags WHERE user_id = $1 AND tag_id = $2", userID, tagID)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Error deleting user tag association", "details": err.Error()})
@@ -295,7 +303,6 @@ func DeleteTagHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// UpdateLocationHandler saves or updates user's geolocation
 func UpdateLocationHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDVal, exists := c.Get("userID")
@@ -320,7 +327,6 @@ func UpdateLocationHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Validate coordinates
 		if request.Latitude < -90 || request.Latitude > 90 {
 			c.JSON(400, gin.H{"error": "Latitude must be between -90 and 90"})
 			return
@@ -330,7 +336,6 @@ func UpdateLocationHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Insert or update location
 		query := `
 			INSERT INTO user_locations (user_id, lat, lon, accuracy_m, updated_at) 
 			VALUES ($1, $2, $3, $4, NOW())
@@ -355,7 +360,6 @@ func UpdateLocationHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// GetUserLocationHandler retrieves a specific user's location
 func GetUserLocationHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDStr := c.Param("userId")
@@ -389,7 +393,6 @@ func GetUserLocationHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// GetNearbyUsersHandler finds users near the authenticated user
 func GetNearbyUsersHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDVal, exists := c.Get("userID")
@@ -403,7 +406,6 @@ func GetNearbyUsersHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get current user's location
 		var myLat, myLon float64
 		err := db.QueryRow(
 			"SELECT lat, lon FROM user_locations WHERE user_id = $1",
@@ -418,7 +420,6 @@ func GetNearbyUsersHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get radius parameter (default 200km)
 		radiusKm := 200.0
 		if radiusStr := c.Query("radius"); radiusStr != "" {
 			if parsedRadius, err := strconv.ParseFloat(radiusStr, 64); err == nil && parsedRadius > 0 {
@@ -426,7 +427,6 @@ func GetNearbyUsersHandler(db *sql.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Get limit parameter (default 50)
 		limit := 50
 		if limitStr := c.Query("limit"); limitStr != "" {
 			if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
@@ -434,7 +434,6 @@ func GetNearbyUsersHandler(db *sql.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Call the nearby_users function
 		rows, err := db.Query(
 			"SELECT user_id, avatar_url, bio, lat, lon, accuracy_m, updated_at, distance_km FROM nearby_users($1, $2, $3, $4)",
 			myLat, myLon, radiusKm, limit,
@@ -474,7 +473,6 @@ func GetNearbyUsersHandler(db *sql.DB) gin.HandlerFunc {
 				log.Printf("Error scanning nearby user: %v", err)
 				continue
 			}
-			// Don't include the current user in results
 			if user.UserID != userID {
 				nearbyUsers = append(nearbyUsers, user)
 			}
@@ -492,7 +490,6 @@ func GetNearbyUsersHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// RequestPasswordResetHandler sends a password reset email
 func RequestPasswordResetHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		email := c.PostForm("email")
@@ -502,12 +499,10 @@ func RequestPasswordResetHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if user exists
 		var userID int
 		var username string
 		err := db.QueryRow("SELECT id, username FROM users WHERE email = $1", email).Scan(&userID, &username)
 		if err == sql.ErrNoRows {
-			// Don't reveal if email exists or not for security
 			c.JSON(200, gin.H{"message": "If this email exists, a password reset link has been sent"})
 			return
 		} else if err != nil {
@@ -516,11 +511,9 @@ func RequestPasswordResetHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Generate reset token
 		resetToken := utils.GenerateToken()
 		expiresAt := time.Now().Add(1 * time.Hour)
 
-		// Save token to database
 		_, err = db.Exec(
 			"UPDATE users SET reset_token = $1, reset_token_expires_at = $2 WHERE id = $3",
 			resetToken, expiresAt, userID,
@@ -531,7 +524,6 @@ func RequestPasswordResetHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Send reset email
 		err = utils.SendPasswordResetEmail(email, resetToken, username)
 		if err != nil {
 			log.Printf("Error sending reset email: %v", err)
@@ -543,7 +535,6 @@ func RequestPasswordResetHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// ResetPasswordHandler resets the password using the token
 func ResetPasswordHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.PostForm("token")
@@ -554,13 +545,11 @@ func ResetPasswordHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Validate password requirements
 		if err := utils.ValidatePassword(newPassword); err != nil {
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Check if token exists and is not expired
 		var userID int
 		var expiresAt time.Time
 		err := db.QueryRow(
@@ -577,20 +566,17 @@ func ResetPasswordHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if token is expired
 		if time.Now().After(expiresAt) {
 			c.JSON(400, gin.H{"error": "Reset token has expired"})
 			return
 		}
 
-		// Hash new password
 		hashedPassword, err := utils.HashPassword(newPassword)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Error hashing password"})
 			return
 		}
 
-		// Update password and clear reset token
 		_, err = db.Exec(
 			"UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires_at = NULL WHERE id = $2",
 			hashedPassword, userID,
@@ -605,21 +591,14 @@ func ResetPasswordHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// RecordProfileViewHandler enregistre qu'un utilisateur a vu un profil
 func RecordProfileViewHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionToken := c.GetHeader("X-Session-Token")
-		if sessionToken == "" {
+		userIDInterface, exists := c.Get("userID")
+		if !exists {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
 			return
 		}
-
-		var viewerID int
-		err := db.QueryRow("SELECT id FROM users WHERE session_token = $1", sessionToken).Scan(&viewerID)
-		if err != nil {
-			c.JSON(401, gin.H{"error": "Invalid session"})
-			return
-		}
+		viewerID := userIDInterface.(int)
 
 		viewedIDStr := c.Param("userId")
 		viewedID, err := strconv.Atoi(viewedIDStr)
@@ -628,14 +607,12 @@ func RecordProfileViewHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Ne pas enregistrer si on regarde son propre profil
 		if viewerID == viewedID {
 			c.JSON(200, gin.H{"message": "Cannot view own profile"})
 			return
 		}
 
-		// INSERT ... ON CONFLICT DO NOTHING pour éviter les doublons
-		_, err = db.Exec(
+		result, err := db.Exec(
 			`INSERT INTO profile_views (viewer_id, viewed_id) 
 			VALUES ($1, $2) 
 			ON CONFLICT (viewer_id, viewed_id) DO NOTHING`,
@@ -647,14 +624,19 @@ func RecordProfileViewHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected > 0 {
+			var viewerName string
+			db.QueryRow("SELECT first_name FROM users WHERE id = $1", viewerID).Scan(&viewerName)
+			CreateAndPushNotification(db, viewedID, "visit", viewerID, viewerName+" viewed your profile")
+		}
+
 		c.JSON(200, gin.H{"message": "View recorded successfully"})
 	}
 }
 
-// ToggleProfileLikeHandler ajoute ou retire un like sur un profil
 func ToggleProfileLikeHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Récupérer l'ID de l'utilisateur connecté depuis le contexte (middleware)
 		likerIDVal, userExists := c.Get("userID")
 		if !userExists {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
@@ -673,13 +655,29 @@ func ToggleProfileLikeHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Ne pas se liker soi-même
 		if likerID == likedID {
 			c.JSON(400, gin.H{"error": "Cannot like own profile"})
 			return
 		}
 
-		// Vérifier si le like existe déjà
+		var hasProfilePicture bool
+		err = db.QueryRow(
+			"SELECT EXISTS(SELECT 1 FROM user_images WHERE user_id = $1 AND is_profile_picture = TRUE)",
+			likerID,
+		).Scan(&hasProfilePicture)
+		if err != nil {
+			log.Printf("Error checking profile picture: %v", err)
+			c.JSON(500, gin.H{"error": "Database error"})
+			return
+		}
+		if !hasProfilePicture {
+			c.JSON(403, gin.H{"error": "You need a profile picture to like other profiles"})
+			return
+		}
+
+		var likerName string
+		db.QueryRow("SELECT first_name FROM users WHERE id = $1", likerID).Scan(&likerName)
+
 		var likeExists bool
 		err = db.QueryRow(
 			"SELECT EXISTS(SELECT 1 FROM profile_likes WHERE liker_id = $1 AND liked_id = $2)",
@@ -692,7 +690,12 @@ func ToggleProfileLikeHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		if likeExists {
-			// Unlike - retirer le like
+			var wasConnected bool
+			db.QueryRow(
+				"SELECT EXISTS(SELECT 1 FROM profile_likes WHERE liker_id = $1 AND liked_id = $2)",
+				likedID, likerID,
+			).Scan(&wasConnected)
+
 			_, err = db.Exec(
 				"DELETE FROM profile_likes WHERE liker_id = $1 AND liked_id = $2",
 				likerID, likedID,
@@ -702,9 +705,13 @@ func ToggleProfileLikeHandler(db *sql.DB) gin.HandlerFunc {
 				c.JSON(500, gin.H{"error": "Error removing like"})
 				return
 			}
+
+			if wasConnected {
+				CreateAndPushNotification(db, likedID, "unlike", likerID, likerName+" unliked you")
+			}
+
 			c.JSON(200, gin.H{"message": "Like removed", "liked": false})
 		} else {
-			// Like - ajouter le like
 			_, err = db.Exec(
 				"INSERT INTO profile_likes (liker_id, liked_id) VALUES ($1, $2)",
 				likerID, likedID,
@@ -714,12 +721,27 @@ func ToggleProfileLikeHandler(db *sql.DB) gin.HandlerFunc {
 				c.JSON(500, gin.H{"error": "Error adding like"})
 				return
 			}
+
+			var isMatch bool
+			db.QueryRow(
+				"SELECT EXISTS(SELECT 1 FROM profile_likes WHERE liker_id = $1 AND liked_id = $2)",
+				likedID, likerID,
+			).Scan(&isMatch)
+
+			if isMatch {
+				var likedName string
+				db.QueryRow("SELECT first_name FROM users WHERE id = $1", likedID).Scan(&likedName)
+				CreateAndPushNotification(db, likedID, "match", likerID, "You matched with "+likerName+"!")
+				CreateAndPushNotification(db, likerID, "match", likedID, "You matched with "+likedName+"!")
+			} else {
+				CreateAndPushNotification(db, likedID, "like", likerID, likerName+" liked your profile")
+			}
+
 			c.JSON(200, gin.H{"message": "Like added", "liked": true})
 		}
 	}
 }
 
-// GetProfileStatsHandler retourne les statistiques d'un profil (vues, likes, fame rating)
 func GetProfileStatsHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDStr := c.Param("userId")
@@ -732,21 +754,18 @@ func GetProfileStatsHandler(db *sql.DB) gin.HandlerFunc {
 		var viewsCount, likesCount int
 		var fameRating float64
 
-		// Compter les vues
 		err = db.QueryRow("SELECT COUNT(*) FROM profile_views WHERE viewed_id = $1", userID).Scan(&viewsCount)
 		if err != nil {
 			log.Printf("Error counting views: %v", err)
 			viewsCount = 0
 		}
 
-		// Compter les likes
 		err = db.QueryRow("SELECT COUNT(*) FROM profile_likes WHERE liked_id = $1", userID).Scan(&likesCount)
 		if err != nil {
 			log.Printf("Error counting likes: %v", err)
 			likesCount = 0
 		}
 
-		// Récupérer le fame rating
 		err = db.QueryRow("SELECT COALESCE(fame_rating, 0) FROM users WHERE id = $1", userID).Scan(&fameRating)
 		if err != nil {
 			log.Printf("Error getting fame rating: %v", err)
@@ -761,10 +780,8 @@ func GetProfileStatsHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// CheckLikeStatusHandler vérifie si l'utilisateur actuel a liké un profil
 func CheckLikeStatusHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Récupérer l'ID de l'utilisateur connecté depuis le contexte (middleware)
 		userIDVal, userExists := c.Get("userID")
 		if !userExists {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
@@ -798,7 +815,6 @@ func CheckLikeStatusHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// GetProfileViewersHandler retourne la liste des profils qui ont vu le profil de l'utilisateur
 func GetProfileViewersHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDStr := c.Param("userId")
@@ -808,7 +824,6 @@ func GetProfileViewersHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Récupérer tous les utilisateurs qui ont vu ce profil
 		rows, err := db.Query(`
 			SELECT DISTINCT u.id, u.username, u.first_name, u.last_name, u.email, 
 			       u.gender, u.orientation, u.birthday, u.bio, u.fame_rating,
@@ -840,10 +855,11 @@ func GetProfileViewersHandler(db *sql.DB) gin.HandlerFunc {
 			var birthday sql.NullTime
 			var fameRating sql.NullFloat64
 			var latitude, longitude sql.NullFloat64
+			var lastViewedAt sql.NullTime
 
 			err := rows.Scan(&id, &username, &firstName, &lastName, &email,
 				&gender, &orientation, &birthday, &bio, &fameRating,
-				&latitude, &longitude, &tags)
+				&latitude, &longitude, &tags, &lastViewedAt)
 			if err != nil {
 				log.Printf("Error scanning viewer row: %v", err)
 				continue
@@ -864,11 +880,32 @@ func GetProfileViewersHandler(db *sql.DB) gin.HandlerFunc {
 				"longitude":   longitude.Float64,
 			}
 
-			// Parse tags
 			if tags.String != "" {
 				viewer["tags"] = strings.Split(tags.String, ",")
 			} else {
 				viewer["tags"] = []string{}
+			}
+			viewer["interests"] = viewer["tags"]
+
+			imageRows, err := db.Query(`
+SELECT path FROM user_images 
+WHERE user_id = $1 
+ORDER BY is_profile_picture DESC, id ASC
+`, id)
+			if err == nil {
+				defer imageRows.Close()
+				var images []string
+				for imageRows.Next() {
+					var path string
+					if err := imageRows.Scan(&path); err == nil {
+						images = append(images, path)
+					}
+				}
+				viewer["images"] = images
+				log.Printf("DEBUG: Fetched %d images for viewer ID %d (username: %s)", len(images), id, username)
+			} else {
+				viewer["images"] = []string{}
+				log.Printf("ERROR: Failed to fetch images for viewer ID %d: %v", id, err)
 			}
 
 			viewers = append(viewers, viewer)
@@ -884,7 +921,6 @@ func GetProfileViewersHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// GetProfileLikersHandler retourne la liste des profils qui ont liké le profil de l'utilisateur
 func GetProfileLikersHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDStr := c.Param("userId")
@@ -894,7 +930,6 @@ func GetProfileLikersHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Récupérer tous les utilisateurs qui ont liké ce profil
 		rows, err := db.Query(`
 			SELECT DISTINCT u.id, u.username, u.first_name, u.last_name, u.email, 
 			       u.gender, u.orientation, u.birthday, u.bio, u.fame_rating,
@@ -923,13 +958,14 @@ func GetProfileLikersHandler(db *sql.DB) gin.HandlerFunc {
 			var id int
 			var username, firstName, lastName, email string
 			var gender, orientation, bio, tags sql.NullString
+			var lastLikedAt sql.NullTime
 			var birthday sql.NullTime
 			var fameRating sql.NullFloat64
 			var latitude, longitude sql.NullFloat64
 
 			err := rows.Scan(&id, &username, &firstName, &lastName, &email,
 				&gender, &orientation, &birthday, &bio, &fameRating,
-				&latitude, &longitude, &tags)
+				&latitude, &longitude, &tags, &lastLikedAt)
 			if err != nil {
 				log.Printf("Error scanning liker row: %v", err)
 				continue
@@ -950,11 +986,30 @@ func GetProfileLikersHandler(db *sql.DB) gin.HandlerFunc {
 				"longitude":   longitude.Float64,
 			}
 
-			// Parse tags
 			if tags.String != "" {
 				liker["tags"] = strings.Split(tags.String, ",")
 			} else {
 				liker["tags"] = []string{}
+			}
+			liker["interests"] = liker["tags"]
+
+			imageRows, err := db.Query(`
+SELECT path FROM user_images 
+WHERE user_id = $1 
+ORDER BY is_profile_picture DESC, id ASC
+`, id)
+			if err == nil {
+				defer imageRows.Close()
+				var images []string
+				for imageRows.Next() {
+					var path string
+					if err := imageRows.Scan(&path); err == nil {
+						images = append(images, path)
+					}
+				}
+				liker["images"] = images
+			} else {
+				liker["images"] = []string{}
 			}
 
 			likers = append(likers, liker)
@@ -970,7 +1025,6 @@ func GetProfileLikersHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// GetCurrentUserHandler retourne les informations de l'utilisateur connecté
 func GetCurrentUserHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionToken, err := c.Cookie("session_token")
@@ -1034,7 +1088,6 @@ func GetCurrentUserHandler(db *sql.DB) gin.HandlerFunc {
 			response["fame_rating"] = 0.0
 		}
 
-		// Récupérer les tags de l'utilisateur
 		tags := []string{}
 		tagRows, err := db.Query(`
 			SELECT t.name 
@@ -1053,7 +1106,6 @@ func GetCurrentUserHandler(db *sql.DB) gin.HandlerFunc {
 		}
 		response["tags"] = tags
 
-		// Récupérer la localisation de l'utilisateur
 		var lat, lon sql.NullFloat64
 		err = db.QueryRow(`
 			SELECT lat, lon 
@@ -1072,7 +1124,6 @@ func GetCurrentUserHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// GetAllUsersHandler retourne tous les utilisateurs (pour les suggestions de profils)
 func GetAllUsersHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rows, err := db.Query(`
@@ -1134,7 +1185,6 @@ func GetAllUsersHandler(db *sql.DB) gin.HandlerFunc {
 				user["fame_rating"] = 0.0
 			}
 
-			// Récupérer les tags de l'utilisateur
 			tags := []string{}
 			tagRows, err := db.Query(`
 				SELECT t.name 
@@ -1153,7 +1203,6 @@ func GetAllUsersHandler(db *sql.DB) gin.HandlerFunc {
 			}
 			user["tags"] = tags
 
-			// Récupérer la localisation de l'utilisateur
 			var lat, lon sql.NullFloat64
 			err = db.QueryRow(`
 				SELECT lat, lon 
@@ -1173,7 +1222,6 @@ func GetAllUsersHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// GetUserByIdHandler retourne un utilisateur spécifique par son ID
 func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDStr := c.Param("userId")
@@ -1236,7 +1284,6 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 			user["fame_rating"] = 0.0
 		}
 
-		// Récupérer les tags de l'utilisateur
 		tags := []string{}
 		tagRows, err := db.Query(`
 			SELECT t.name 
@@ -1255,7 +1302,6 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 		}
 		user["tags"] = tags
 
-		// Récupérer la localisation de l'utilisateur
 		var lat, lon sql.NullFloat64
 		err = db.QueryRow(`
 			SELECT lat, lon 
@@ -1268,14 +1314,33 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 			user["longitude"] = lon.Float64
 		}
 
+		imageRows, err := db.Query(`
+			SELECT path FROM user_images 
+			WHERE user_id = $1 
+			ORDER BY is_profile_picture DESC, id ASC
+		`, userID)
+		if err == nil {
+			defer imageRows.Close()
+			var images []string
+			for imageRows.Next() {
+				var path string
+				if err := imageRows.Scan(&path); err == nil {
+					images = append(images, path)
+				}
+			}
+			user["images"] = images
+			log.Printf("DEBUG: Fetched %d images for user ID %d", len(images), userID)
+		} else {
+			user["images"] = []string{}
+			log.Printf("ERROR: Failed to fetch images for user ID %d: %v", userID, err)
+		}
+
 		c.JSON(200, user)
 	}
 }
 
-// UpdateProfileHandler met à jour les informations du profil utilisateur
 func UpdateProfileHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Récupérer l'ID de l'utilisateur depuis le contexte (middleware)
 		userIDVal, exists := c.Get("userID")
 		if !exists {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
@@ -1301,7 +1366,6 @@ func UpdateProfileHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Construire la requête de mise à jour dynamiquement
 		updates := []string{}
 		args := []interface{}{}
 		argIndex := 1
@@ -1342,7 +1406,6 @@ func UpdateProfileHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Ajouter l'ID utilisateur comme dernier argument
 		args = append(args, userID)
 
 		query := "UPDATE users SET " + updates[0]
@@ -1362,10 +1425,8 @@ func UpdateProfileHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// UpdateEmailHandler met à jour l'email de l'utilisateur
 func UpdateEmailHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Récupérer l'ID de l'utilisateur depuis le contexte (middleware)
 		userIDVal, exists := c.Get("userID")
 		if !exists {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
@@ -1391,7 +1452,6 @@ func UpdateEmailHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Vérifier si l'email existe déjà
 		var emailExists bool
 		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND id != $2)", requestData.Email, userID).Scan(&emailExists)
 		if err != nil {
@@ -1414,10 +1474,8 @@ func UpdateEmailHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// UpdateTagsHandler met à jour les tags/intérêts de l'utilisateur
 func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Récupérer l'ID de l'utilisateur depuis le contexte (middleware)
 		userIDVal, exists := c.Get("userID")
 		if !exists {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
@@ -1438,7 +1496,6 @@ func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Commencer une transaction
 		tx, err := db.Begin()
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Error starting transaction"})
@@ -1446,7 +1503,6 @@ func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// Supprimer tous les tags existants de l'utilisateur
 		_, err = tx.Exec("DELETE FROM user_tags WHERE user_id = $1", userID)
 		if err != nil {
 			log.Printf("Error deleting old tags: %v", err)
@@ -1454,17 +1510,13 @@ func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Ajouter les nouveaux tags
 		for _, tagName := range requestData.Tags {
 			if tagName == "" {
 				continue
 			}
-
-			// Vérifier si le tag existe, sinon le créer
 			var tagID int
 			err := tx.QueryRow("SELECT id FROM tags WHERE name = $1", tagName).Scan(&tagID)
 			if err == sql.ErrNoRows {
-				// Le tag n'existe pas, le créer
 				err = tx.QueryRow("INSERT INTO tags (name) VALUES ($1) RETURNING id", tagName).Scan(&tagID)
 				if err != nil {
 					log.Printf("Error creating tag: %v", err)
@@ -1477,7 +1529,6 @@ func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
 				return
 			}
 
-			// Associer le tag à l'utilisateur
 			_, err = tx.Exec("INSERT INTO user_tags (user_id, tag_id) VALUES ($1, $2)", userID, tagID)
 			if err != nil {
 				log.Printf("Error associating tag: %v", err)
@@ -1486,7 +1537,6 @@ func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Valider la transaction
 		if err := tx.Commit(); err != nil {
 			log.Printf("Error committing transaction: %v", err)
 			c.JSON(500, gin.H{"error": "Error committing changes"})
@@ -1497,10 +1547,8 @@ func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// GetSuggestionsHandler retourne les suggestions de profils filtrées par compatibilité mutuelle
 func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Récupérer l'ID de l'utilisateur connecté
 		userIDVal, exists := c.Get("userID")
 		if !exists {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
@@ -1512,7 +1560,6 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Récupérer les préférences d'orientation de l'utilisateur connecté
 		var currentUserOrientation string
 		err := db.QueryRow("SELECT COALESCE(orientation, 'likes men and women') FROM users WHERE id = $1", userID).Scan(&currentUserOrientation)
 		if err != nil {
@@ -1521,7 +1568,6 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Récupérer le genre de l'utilisateur connecté
 		var currentUserGender string
 		err = db.QueryRow("SELECT COALESCE(gender, 'Woman') FROM users WHERE id = $1", userID).Scan(&currentUserGender)
 		if err != nil {
@@ -1530,12 +1576,30 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Déterminer les genres cibles pour l'utilisateur connecté
-		// Parsons l'orientation correctement
+		currentUserTags := []string{}
+		currentTagRows, err := db.Query(`
+		SELECT t.name FROM tags t 
+		JOIN user_tags ut ON t.id = ut.tag_id 
+		WHERE ut.user_id = $1
+	`, userID)
+		if err == nil {
+			defer currentTagRows.Close()
+			for currentTagRows.Next() {
+				var tagName string
+				if currentTagRows.Scan(&tagName) == nil {
+					currentUserTags = append(currentUserTags, tagName)
+				}
+			}
+		}
+
+		var currentUserLat, currentUserLon sql.NullFloat64
+		err = db.QueryRow(`
+		SELECT lat, lon FROM user_locations WHERE user_id = $1
+	`, userID).Scan(&currentUserLat, &currentUserLon)
+
 		var targetGenders []string
 		lowerOrientation := strings.ToLower(strings.TrimSpace(currentUserOrientation))
 
-		// Check the exact format: "likes X"
 		if lowerOrientation == "likes men and women" || lowerOrientation == "likes both" || lowerOrientation == "both" {
 			targetGenders = []string{"Man", "Woman"}
 		} else if lowerOrientation == "likes men" || lowerOrientation == "men" {
@@ -1549,11 +1613,9 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 		} else if strings.HasSuffix(lowerOrientation, "women") {
 			targetGenders = []string{"Woman"}
 		} else {
-			// Default fallback
 			targetGenders = []string{"Man", "Woman"}
 		}
 
-		// Créer placeholders pour IN clause et construire la clause de compatibilité d'orientation
 		placeholders := ""
 		orientationClauses := []string{}
 		args := []interface{}{userID}
@@ -1565,11 +1627,7 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			placeholders += "$" + strconv.Itoa(len(args)+1)
 			args = append(args, gender)
 
-			// Pour chaque genre cible, ajouter une clause qui vérifie que le candidat de ce genre
-			// aime le genre de l'utilisateur connecté
 			if gender == "Man" {
-				// Si on cherche des hommes, ils doivent aimer les femmes (si current user est Woman)
-				// ou aimer les hommes (si current user est Man)
 				if currentUserGender == "Woman" {
 					orientationClauses = append(orientationClauses,
 						"(u.gender = 'Man' AND (u.orientation = 'likes women' OR u.orientation = 'likes men and women'))")
@@ -1578,8 +1636,6 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 						"(u.gender = 'Man' AND (u.orientation = 'likes men' OR u.orientation = 'likes men and women'))")
 				}
 			} else if gender == "Woman" {
-				// Si on cherche des femmes, elles doivent aimer les femmes (si current user est Woman)
-				// ou aimer les hommes (si current user est Man)
 				if currentUserGender == "Woman" {
 					orientationClauses = append(orientationClauses,
 						"(u.gender = 'Woman' AND (u.orientation = 'likes women' OR u.orientation = 'likes men and women'))")
@@ -1592,16 +1648,13 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 
 		orientationFilter := strings.Join(orientationClauses, " OR ")
 
-		// Récupérer les paramètres de filtrage optionnels depuis query params
 		minAgeStr := c.DefaultQuery("minAge", "")
 		maxAgeStr := c.DefaultQuery("maxAge", "")
 		minFameStr := c.DefaultQuery("minFame", "")
 		maxDistanceStr := c.DefaultQuery("maxDistance", "")
 
-		// Construire les clauses de filtrage supplémentaires
 		var additionalFilters []string
 
-		// Filtre par âge si spécifié
 		if minAgeStr != "" || maxAgeStr != "" {
 			minAge := 18
 			maxAge := 99
@@ -1625,24 +1678,20 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				fmt.Sprintf("EXTRACT(YEAR FROM u.birthday) BETWEEN %d AND %d", minBirthYear, maxBirthYear))
 		}
 
-		// Filtre par fame rating si spécifié
 		if minFameStr != "" {
 			if v, err := strconv.ParseFloat(minFameStr, 64); err == nil {
 				additionalFilters = append(additionalFilters, fmt.Sprintf("u.fame_rating >= %.2f", v))
 			}
 		}
 
-		// Filtre par distance si spécifié
 		if maxDistanceStr != "" {
 			if maxDist, err := strconv.ParseFloat(maxDistanceStr, 64); err == nil && maxDist > 0 {
-				// Récupérer la localisation de l'utilisateur connecté
 				var userLat, userLon sql.NullFloat64
 				err = db.QueryRow(`
 					SELECT lat, lon FROM user_locations WHERE user_id = $1
 				`, userID).Scan(&userLat, &userLon)
 
 				if err == nil && userLat.Valid && userLon.Valid {
-					// Formule Haversine : 6371 km = rayon de la terre
 					additionalFilters = append(additionalFilters, fmt.Sprintf(`
 						(6371 * 2 * ASIN(SQRT(
 							POWER(SIN(RADIANS((u_loc.lat - %f) / 2)), 2) + 
@@ -1654,25 +1703,26 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Construire la clause WHERE complète
 		additionalFilterClause := ""
 		if len(additionalFilters) > 0 {
 			additionalFilterClause = " AND " + strings.Join(additionalFilters, " AND ")
 		}
 
-		// Récupérer tous les utilisateurs vérifiés dont le genre correspond aux préférences
-		// ET dont l'orientation accepte le genre de l'utilisateur connecté
 		query := `
 			SELECT u.id, u.username, u.first_name, u.last_name, u.email, u.gender, u.orientation, 
-			       u.birthday, u.bio, u.avatar_url, u.fame_rating
+			       u.birthday, u.bio, u.avatar_url, u.fame_rating, u.last_seen
 			FROM users u
 			LEFT JOIN user_locations u_loc ON u.id = u_loc.user_id
 			WHERE u.verified = true 
 			  AND u.id != $1
 			  AND u.gender IN (` + placeholders + `)
-			  AND (` + orientationFilter + `)` + additionalFilterClause
+			  AND (` + orientationFilter + `)
+			  AND NOT EXISTS (
+			    SELECT 1 FROM blocks
+			    WHERE (blocker_id = $1 AND blocked_id = u.id)
+			       OR (blocker_id = u.id AND blocked_id = $1)
+			  )` + additionalFilterClause
 
-		// DEBUG: Log the query and parameters
 		log.Printf("DEBUG GetSuggestions - UserID: %d, Gender: %s, Orientation: %s", userID, currentUserGender, currentUserOrientation)
 		log.Printf("DEBUG GetSuggestions - Target genders: %v", targetGenders)
 		log.Printf("DEBUG GetSuggestions - Orientation filter: %s", orientationFilter)
@@ -1692,12 +1742,12 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			var userID int
 			var username, email, firstName, lastName string
 			var gender, orientation, bio, avatarURL sql.NullString
-			var birthday sql.NullTime
+			var birthday, lastSeen sql.NullTime
 			var fameRating sql.NullFloat64
 
 			err := rows.Scan(
 				&userID, &username, &firstName, &lastName, &email,
-				&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating,
+				&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating, &lastSeen,
 			)
 			if err != nil {
 				log.Printf("Error scanning user: %v", err)
@@ -1733,7 +1783,14 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				user["fame_rating"] = 0.0
 			}
 
-			// Récupérer les tags de l'utilisateur
+			isOnline := false
+			if lastSeen.Valid {
+				timeSinceLastSeen := time.Since(lastSeen.Time)
+				isOnline = timeSinceLastSeen < 5*time.Minute
+				user["last_seen"] = lastSeen.Time.Format(time.RFC3339)
+			}
+			user["is_online"] = isOnline
+
 			tags := []string{}
 			tagRows, err := db.Query(`
 				SELECT t.name 
@@ -1752,7 +1809,6 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			}
 			user["tags"] = tags
 
-			// Récupérer la localisation de l'utilisateur
 			var lat, lon sql.NullFloat64
 			err = db.QueryRow(`
 				SELECT lat, lon 
@@ -1763,7 +1819,37 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			if err == nil && lat.Valid && lon.Valid {
 				user["latitude"] = lat.Float64
 				user["longitude"] = lon.Float64
+
+				if currentUserLat.Valid && currentUserLon.Valid {
+					distance := haversineDistance(
+						currentUserLat.Float64, currentUserLon.Float64,
+						lat.Float64, lon.Float64,
+					)
+					user["distance_km"] = distance
+				} else {
+					user["distance_km"] = -1
+				}
+			} else {
+				user["distance_km"] = -1
 			}
+
+			commonCount := 0
+			for _, tag := range tags {
+				for _, currentTag := range currentUserTags {
+					if tag == currentTag {
+						commonCount++
+						break
+					}
+				}
+			}
+
+			totalTags := len(currentUserTags) + len(tags) - commonCount
+			matchScore := 0.0
+			if totalTags > 0 {
+				matchScore = (float64(commonCount) / float64(totalTags)) * 100
+			}
+			user["match_score"] = matchScore
+			user["common_tags"] = commonCount
 
 			users = append(users, user)
 		}

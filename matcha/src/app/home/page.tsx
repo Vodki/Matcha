@@ -2,12 +2,12 @@
 
 /* eslint-disable @next/next/no-img-element */
 import React, { useMemo, useState } from "react";
-import { Profile, backendUserToProfile } from "../../types/profile";
+import { backendUserToProfile } from "../../types/profile";
 import { useProfiles } from "../../hooks/useProfiles";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { getImageUrl } from "../../services/api";
 import Link from "next/link";
 
-type Gender = "Man" | "Woman";
 type OrientationStr = "likes men" | "likes women" | "likes men and women";
 
 const today = new Date();
@@ -17,42 +17,14 @@ function ageFromBirthdate(d: Date) {
   return m < 0 || (m === 0 && today.getDate() < d.getDate()) ? a - 1 : a;
 }
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const la1 = (lat1 * Math.PI) / 180;
-  const la2 = (lat2 * Math.PI) / 180;
-  const sinDLat = Math.sin(dLat / 2);
-  const sinDLng = Math.sin(dLng / 2);
-  const h =
-    sinDLat * sinDLat + Math.cos(la1) * Math.cos(la2) * sinDLng * sinDLng;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
-
 function normalizeTag(t: string) {
   return t.trim().replace(/^#/, "").toLowerCase();
-}
-
-function asSetNormalized(tags: string[]) {
-  return new Set(tags.map(normalizeTag));
-}
-
-function countCommonTags(a: string[], b: string[]) {
-  const A = asSetNormalized(a);
-  const B = asSetNormalized(b);
-  let c = 0;
-  A.forEach((t) => {
-    if (B.has(t)) c++;
-  });
-  return c;
 }
 
 function parseOrientation(pref?: string): OrientationStr {
   if (!pref) return "likes men and women";
   const p = pref.toLowerCase().trim();
-  
-  // Vérifier les patterns exacts pour éviter les faux positifs ("women" contient "men")
+
   if (p === "likes men and women" || p === "both" || p === "likes both") {
     return "likes men and women";
   }
@@ -62,109 +34,51 @@ function parseOrientation(pref?: string): OrientationStr {
   if (p === "likes women" || p === "women") {
     return "likes women";
   }
-  
-  // Fallback avec suffix check pour être sûr
+
   if (p.endsWith("men and women")) return "likes men and women";
   if (p.endsWith("women")) return "likes women";
   if (p.endsWith("men")) return "likes men";
-  
+
   return "likes men and women";
-}
-
-function targetGendersFor(orientation: OrientationStr): Gender[] {
-  if (orientation === "likes men and women") return ["Man", "Woman"];
-  if (orientation === "likes men") return ["Man"];
-  return ["Woman"];
-}
-
-function isInterestingFor(current: Profile, candidate: Profile) {
-  const o = parseOrientation(current.preferences as string | undefined);
-  const targets = targetGendersFor(o);
-  return targets.includes(candidate.gender as Gender);
-}
-
-// Vérifie si deux profils sont mutuellement compatibles (orientation mutuelle)
-function areMutuallyCompatible(profile1: Profile, profile2: Profile) {
-  // Profile1 doit être intéressé par le genre de profile2
-  const profile1LikesProfile2Gender = isInterestingFor(profile1, profile2);
-  
-  // Profile2 doit être intéressé par le genre de profile1
-  const profile2LikesProfile1Gender = isInterestingFor(profile2, profile1);
-  
-  // Les deux doivent être intéressés par le genre de l'autre
-  // Par exemple:
-  // - Alice (Woman, "likes women") + Barbara (Woman, "likes women") = ✅ OK
-  // - Alice (Woman, "likes women") + Bob (Man, "likes women") = ❌ NON (Alice ne cherche pas d'hommes)
-  // - Alice (Woman, "likes men and women") + Barbara (Woman, "likes women") = ✅ OK (Alice accepte les femmes ET Barbara accepte les femmes)
-  // - Bob (Man, "likes women") + Alice (Woman, "likes men and women") = ✅ OK (Bob accepte les femmes ET Alice accepte les hommes)
-  return profile1LikesProfile2Gender && profile2LikesProfile1Gender;
-}
-
-function scoreCandidate(
-  viewer: Profile,
-  candidate: Profile,
-  opts?: { distanceCutoffKm?: number }
-) {
-  const cutoff = opts?.distanceCutoffKm ?? 200;
-  const fame = (candidate.fameRating ?? 0) / 100;
-
-  let distanceKm = Infinity;
-  if (viewer.location && candidate.location) {
-    distanceKm = haversineKm(
-      viewer.location.lat,
-      viewer.location.lng,
-      candidate.location.lat,
-      candidate.location.lng
-    );
-  }
-  const distanceScore =
-    distanceKm === Infinity ? 0 : Math.max(0, 1 - distanceKm / cutoff);
-
-  const common = countCommonTags(viewer.interests, candidate.interests);
-  const denom = Math.max(
-    1,
-    new Set([
-      ...viewer.interests.map(normalizeTag),
-      ...candidate.interests.map(normalizeTag),
-    ]).size
-  );
-  const tagsScore = common / denom;
-
-  const base = 0.5 * distanceScore + 0.3 * tagsScore + 0.2 * fame;
-  return { score: Math.min(1, base), distanceKm, commonTags: common };
 }
 
 type SortKey = "best" | "age" | "distance" | "fame" | "tags";
 
+type Query = {
+  sortBy: SortKey;
+  sortDir: "asc" | "desc";
+  minAge: number;
+  maxAge: number;
+  maxDistanceKm: number;
+  minFame: number;
+  selectedTags: string[];
+};
+
 export default function SuggestedProfilesPage() {
-  // Récupérer l'utilisateur connecté
-  const { currentUser, loading: loadingCurrentUser, error: currentUserError } = useCurrentUser();
-  
+  const {
+    currentUser,
+    loading: loadingCurrentUser,
+    error: currentUserError,
+  } = useCurrentUser();
+
   const myAge = currentUser?.birthdate
     ? ageFromBirthdate(currentUser.birthdate)
     : 18;
-  const minAgeAll = myAge - 5 >= 18 ? myAge - 5 : 18;
-  const maxAgeAll = myAge + 5 <= 99 ? myAge + 5 : 99;
+  const minAgeAll = myAge - 2 >= 18 ? myAge - 2 : 18;
+  const maxAgeAll = myAge + 2 <= 99 ? myAge + 2 : 99;
 
-  type Query = {
-    sortBy: SortKey;
-    sortDir: "asc" | "desc";
-    minAge: number;
-    maxAge: number;
-    maxDistanceKm: number;
-    minFame: number;
-    selectedTags: string[];
-  };
-
-  const suggestionsDefaultQuery: Query = {
-    sortBy: "best",
-    sortDir: "desc",
-    minAge: minAgeAll,
-    maxAge: maxAgeAll,
-    maxDistanceKm: 999999,
-    minFame: 0,
-    selectedTags: [],
-  };
+  const suggestionsDefaultQuery: Query = useMemo(
+    () => ({
+      sortBy: "best",
+      sortDir: "desc",
+      minAge: minAgeAll,
+      maxAge: maxAgeAll,
+      maxDistanceKm: 999999,
+      minFame: 0,
+      selectedTags: [],
+    }),
+    [minAgeAll, maxAgeAll],
+  );
 
   const searchDefaultQuery: Query = {
     sortBy: "age",
@@ -177,36 +91,72 @@ export default function SuggestedProfilesPage() {
   };
 
   const [activeTab, setActiveTab] = useState<"suggestions" | "search">(
-    "suggestions"
+    "suggestions",
   );
 
-  const [suggestionsQuery, setSuggestionsQuery] = useState(
-    suggestionsDefaultQuery
-  );
-  const [searchQuery, setSearchQuery] = useState(searchDefaultQuery);
+  const hasInitializedFilters = React.useRef(false);
 
-  const [suggestionsInput, setSuggestionsInput] = useState(
-    suggestionsDefaultQuery
-  );
-  const [searchInput, setSearchInput] = useState(searchDefaultQuery);
+  const [suggestionsQuery, setSuggestionsQuery] = useState<Query>(() => ({
+    sortBy: "best",
+    sortDir: "desc",
+    minAge: 18,
+    maxAge: 99,
+    maxDistanceKm: 999999,
+    minFame: 0,
+    selectedTags: [],
+  }));
+  const [searchQuery, setSearchQuery] = useState<Query>(searchDefaultQuery);
+
+  const [suggestionsInput, setSuggestionsInput] = useState<Query>(() => ({
+    sortBy: "best",
+    sortDir: "desc",
+    minAge: 18,
+    maxAge: 99,
+    maxDistanceKm: 999999,
+    minFame: 0,
+    selectedTags: [],
+  }));
+  const [searchInput, setSearchInput] = useState<Query>(searchDefaultQuery);
+
+  React.useEffect(() => {
+    if (currentUser?.birthdate) {
+      const userAge = ageFromBirthdate(currentUser.birthdate);
+      const minAge = userAge - 2 >= 18 ? userAge - 2 : 18;
+      const maxAge = userAge + 2 <= 99 ? userAge + 2 : 99;
+
+      setSuggestionsQuery((prev) => ({
+        ...prev,
+        minAge,
+        maxAge,
+      }));
+      setSuggestionsInput((prev) => ({
+        ...prev,
+        minAge,
+        maxAge,
+      }));
+    }
+  }, [currentUser?.birthdate]);
 
   const activeQueryInput =
     activeTab === "suggestions" ? suggestionsInput : searchInput;
   const setActiveQueryInput =
     activeTab === "suggestions" ? setSuggestionsInput : setSearchInput;
 
-  // Récupérer les filtres appliqués
-  const queryToApply = activeTab === "suggestions" ? suggestionsQuery : searchQuery;
+  const queryToApply =
+    activeTab === "suggestions" ? suggestionsQuery : searchQuery;
 
-  // Récupérer les profils depuis l'API avec les filtres appliqués
-  const { profiles: backendProfiles, loading, error } = useProfiles({
+  const {
+    profiles: backendProfiles,
+    loading,
+    error,
+  } = useProfiles({
     minAge: queryToApply.minAge,
     maxAge: queryToApply.maxAge,
     minFame: queryToApply.minFame,
     maxDistance: queryToApply.maxDistanceKm,
+    tags: queryToApply.selectedTags,
   });
 
-  // Convertir les profils backend en profils frontend
   const allProfiles = useMemo(() => {
     return backendProfiles.map(backendUserToProfile);
   }, [backendProfiles]);
@@ -221,22 +171,14 @@ export default function SuggestedProfilesPage() {
 
   const displayedProfiles = useMemo(() => {
     if (!currentUser) return [];
-    
-    // DEBUG: Log des profils reçus
-    console.log("=== DEBUG displayedProfiles ===");
-    console.log("Current user:", {
-      id: currentUser.id,
-      gender: currentUser.gender,
-      preferences: currentUser.preferences
-    });
-    console.log("Total profiles from API:", allProfiles.length);
-    
-    // Les profils sont déjà filtrés par le backend, on ne fait que les trier
+
     const base = allProfiles.filter((p) => p.id !== currentUser.id);
-    console.log("After removing current user:", base.length);
-    
+
     const enriched = base.map((p) => {
-      const { score, distanceKm, commonTags } = scoreCandidate(currentUser, p);
+      const score = p.matchScore ?? 0;
+      const distanceKm = p.distanceKm ?? Infinity;
+      const commonTags = p.commonTags ?? 0;
+
       return {
         profile: p,
         score,
@@ -249,7 +191,6 @@ export default function SuggestedProfilesPage() {
     const queryToApply =
       activeTab === "suggestions" ? suggestionsQuery : searchQuery;
 
-    // Juste trier, pas de filtrage supplémentaire (tout est fait au backend)
     const sorted = [...enriched].sort((a, b) => {
       const mult = queryToApply.sortDir === "asc" ? 1 : -1;
       switch (queryToApply.sortBy) {
@@ -331,21 +272,29 @@ export default function SuggestedProfilesPage() {
 
   return (
     <div className="w-full min-h-screen p-4 sm:p-6">
-      <div role="tablist" className="tabs tabs-lifted">
-        <a
-          role="tab"
-          className={`tab ${activeTab === "suggestions" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("suggestions")}
-        >
-          Suggested for you
-        </a>
-        <a
-          role="tab"
-          className={`tab ${activeTab === "search" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("search")}
-        >
-          Advanced search
-        </a>
+      <div className="flex justify-center mb-6">
+        <div className="inline-flex bg-base-200/50 rounded-full p-1 gap-1">
+          <button
+            className={`px-6 py-2 rounded-full font-medium transition-all duration-300 ${
+              activeTab === "suggestions"
+                ? "bg-primary text-primary-content shadow-md"
+                : "text-base-content/70 hover:text-base-content hover:bg-base-100"
+            }`}
+            onClick={() => setActiveTab("suggestions")}
+          >
+            ✨ Suggested for you
+          </button>
+          <button
+            className={`px-6 py-2 rounded-full font-medium transition-all duration-300 ${
+              activeTab === "search"
+                ? "bg-primary text-primary-content shadow-md"
+                : "text-base-content/70 hover:text-base-content hover:bg-base-100"
+            }`}
+            onClick={() => setActiveTab("search")}
+          >
+            🔍 Advanced search
+          </button>
+        </div>
       </div>
 
       <div className="rounded-box bg-base-100 shadow-sm ring-1 ring-base-200/50 p-4 mb-6">
@@ -379,7 +328,7 @@ export default function SuggestedProfilesPage() {
                 onClick={() =>
                   handleInputChange(
                     "sortDir",
-                    activeQueryInput.sortDir === "asc" ? "desc" : "asc"
+                    activeQueryInput.sortDir === "asc" ? "desc" : "asc",
                   )
                 }
               >
@@ -484,7 +433,8 @@ export default function SuggestedProfilesPage() {
       </div>
 
       <h2 className="text-2xl font-bold mb-4">
-        {activeTab === "suggestions" ? "Suggested profiles" : "Search results"} ({displayedProfiles.length})
+        {activeTab === "suggestions" ? "Suggested profiles" : "Search results"}{" "}
+        ({displayedProfiles.length})
       </h2>
 
       <div className="overflow-x-auto">
@@ -507,15 +457,16 @@ export default function SuggestedProfilesPage() {
           <tbody>
             {displayedProfiles.map(({ profile, age, distanceKm, score }) => (
               <tr key={profile.id}>
-                <td>{(score * 100).toFixed(0)}%</td>
+                <td>{score.toFixed(0)}%</td>
                 <td>
                   <div className="flex items-center gap-3">
                     <div className="avatar">
                       <div className="mask mask-squircle h-12 w-12">
                         <img
                           src={
-                            profile.images?.[0] ??
-                            "https://img.daisyui.com/images/profile/demo/2@94.webp"
+                            profile.images?.[0]
+                              ? getImageUrl(profile.images[0])
+                              : "https://img.daisyui.com/images/profile/demo/2@94.webp"
                           }
                           alt={`${profile.firstName} ${profile.lastName}`}
                         />
@@ -551,7 +502,9 @@ export default function SuggestedProfilesPage() {
                 </td>
                 <td>
                   <div className="flex items-center gap-2">
-                    <span className="tabular-nums">{profile.fameRating.toFixed(1)}%</span>
+                    <span className="tabular-nums">
+                      {profile.fameRating.toFixed(1)}%
+                    </span>
                     <progress
                       className="progress progress-primary w-24"
                       value={profile.fameRating}

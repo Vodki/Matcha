@@ -39,7 +39,7 @@ class ApiService {
       if (!response.ok) {
         if (response.status === 401 && typeof window !== "undefined") {
           console.error(
-            "🔴 401 Unauthorized on endpoint:",
+            "401 Unauthorized on endpoint:",
             endpoint,
             "Method:",
             options.method || "GET",
@@ -536,7 +536,7 @@ class ApiService {
       const data = await response.json();
       if (!response.ok) {
         if (response.status === 401 && typeof window !== "undefined") {
-          console.error("🔴 401 Unauthorized on uploadImage");
+          console.error("401 Unauthorized on uploadImage");
           window.location.href = "/";
           return { error: "Unauthorized" };
         }

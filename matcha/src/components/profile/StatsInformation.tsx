@@ -22,10 +22,10 @@ export default function StatsInformation({
 
   return (
     <section className="min-w-0">
-      <h2 className="text-xl font-semibold">✨ Stats ✨</h2>
+      <h2 className="text-xl font-semibold">Stats</h2>
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 items-stretch">
         <ProfileCarousel
-          title="Who saw your profile 👀"
+          title="Who saw your profile"
           profiles={viewers}
           onSeeProfile={onSeeProfile}
         />

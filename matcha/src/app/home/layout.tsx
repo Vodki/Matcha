@@ -11,7 +11,7 @@ export default function RootLayout({
   const { state } = useGlobalAppContext();
 
   const hasUnreadNotifications = state.notifications.some(
-    (n) => !n.read && n.id === state.currentUser.id
+    (n) => !n.read && n.id === state.currentUser.id,
   );
 
   return (
@@ -49,7 +49,10 @@ export default function RootLayout({
                 className="dropdown-content menu glass rounded-box z-50 w-56 p-3 shadow-xl border border-white/20"
               >
                 <li>
-                  <Link href="/home" className="flex items-center gap-3 py-3 hover:bg-primary/10 rounded-xl transition-all">
+                  <Link
+                    href="/home"
+                    className="flex items-center gap-3 py-3 hover:bg-primary/10 rounded-xl transition-all"
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
@@ -68,7 +71,10 @@ export default function RootLayout({
                   </Link>
                 </li>
                 <li>
-                  <Link href="/home/profile" className="flex items-center gap-3 py-3 hover:bg-primary/10 rounded-xl transition-all">
+                  <Link
+                    href="/home/profile"
+                    className="flex items-center gap-3 py-3 hover:bg-primary/10 rounded-xl transition-all"
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
@@ -88,7 +94,10 @@ export default function RootLayout({
                 </li>
                 <div className="divider my-1 opacity-30"></div>
                 <li>
-                  <Link href="/home/chat" className="flex items-center gap-3 py-3 hover:bg-primary/10 rounded-xl transition-all">
+                  <Link
+                    href="/home/chat"
+                    className="flex items-center gap-3 py-3 hover:bg-primary/10 rounded-xl transition-all"
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
@@ -111,8 +120,10 @@ export default function RootLayout({
           </div>
 
           <div className="navbar-center gap-2">
-            <Link href="/home" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <span className="text-2xl">🍵</span>
+            <Link
+              href="/home"
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
               <span className="text-2xl font-black bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
                 Matcha
               </span>
@@ -130,4 +141,3 @@ export default function RootLayout({
     </ProtectedRoute>
   );
 }
-

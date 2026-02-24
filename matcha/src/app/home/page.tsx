@@ -282,7 +282,7 @@ export default function SuggestedProfilesPage() {
             }`}
             onClick={() => setActiveTab("suggestions")}
           >
-            ✨ Suggested for you
+            Suggested for you
           </button>
           <button
             className={`px-6 py-2 rounded-full font-medium transition-all duration-300 ${
@@ -292,7 +292,7 @@ export default function SuggestedProfilesPage() {
             }`}
             onClick={() => setActiveTab("search")}
           >
-            🔍 Advanced search
+            Advanced search
           </button>
         </div>
       </div>

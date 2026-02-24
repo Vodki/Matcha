@@ -8,7 +8,6 @@ export default function VerificationPage() {
     <div className="w-full min-h-screen bg-gradient-hero flex items-center justify-center py-8">
       <div className="flex flex-col gap-6 items-center w-full max-w-md mx-auto px-4 animate-fade-in">
         <div className="glass rounded-3xl shadow-xl w-full p-10 text-center animate-slide-up">
-          <div className="text-6xl mb-4">🍵</div>
           <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center animate-pulse-soft">
             <svg
               className="w-10 h-10 text-white"
@@ -27,7 +26,7 @@ export default function VerificationPage() {
           </div>
 
           <h1 className="text-3xl font-bold text-neutral mb-3">
-            Check your inbox! 📬
+            Check your inbox!
           </h1>
           <p className="text-neutral/70 text-lg mb-6 leading-relaxed">
             We have sent a verification link to your email address. Click the
@@ -36,8 +35,8 @@ export default function VerificationPage() {
 
           <div className="bg-base-200/50 rounded-2xl p-4 mb-6 text-left">
             <p className="text-sm text-neutral/60 mb-2">
-              <span className="font-semibold">💡 Tip:</span> If you do not see
-              the email:
+              <span className="font-semibold">Tip:</span> If you do not see the
+              email:
             </p>
             <ul className="text-sm text-neutral/60 list-disc list-inside space-y-1">
               <li>Check your spam or junk folder</li>

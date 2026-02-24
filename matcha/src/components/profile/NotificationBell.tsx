@@ -178,9 +178,7 @@ export default function NotificationBell() {
                     <p>{notif.message}</p>
                     {link && (
                       <p className="text-secondary text-xs mt-1">
-                        {notif.type === "message"
-                          ? "💬 Reply"
-                          : "👤 View profile"}
+                        {notif.type === "message" ? "Reply" : "View profile"}
                       </p>
                     )}
                     <p className="text-xs text-right opacity-60 mt-1">

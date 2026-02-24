@@ -34,13 +34,10 @@ class WebSocketService {
       ? `${protocol}//localhost:8080/ws?token=${encodeURIComponent(token)}`
       : `${protocol}//localhost:8080/ws`;
 
-    console.log("WebSocket: Attempting to connect to", wsUrl);
-
     try {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log("WebSocket: Connected successfully");
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.emit("connection", { status: "connected" });
@@ -49,7 +46,6 @@ class WebSocketService {
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log("WebSocket message received:", data);
 
           if (data.type) {
             this.emit(data.type, data);
@@ -62,7 +58,6 @@ class WebSocketService {
       };
 
       this.ws.onclose = (event) => {
-        console.log("WebSocket disconnected", event.code, event.reason);
         this.isConnecting = false;
         this.ws = null;
         this.emit("connection", { status: "disconnected" });
@@ -71,9 +66,7 @@ class WebSocketService {
           this.reconnectAttempts++;
           const delay =
             this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-          console.log(
-            `Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`,
-          );
+
           setTimeout(() => this.connect(), delay);
         }
       };

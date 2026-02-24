@@ -65,7 +65,6 @@ export default function SignIn() {
     <div className="w-full min-h-screen bg-gradient-hero flex items-center justify-center py-8 px-4">
       <div className="flex flex-col gap-6 items-center w-full max-w-md mx-auto animate-fade-in">
         <div className="text-center animate-slide-up">
-          <div className="text-6xl mb-4">🍵</div>
           <h1 className="text-4xl font-extrabold text-neutral mb-2">
             Welcome Back
           </h1>
@@ -271,7 +270,7 @@ export default function SignIn() {
           className="text-xs text-neutral/50 text-center animate-slide-up"
           style={{ animationDelay: "0.2s" }}
         >
-          Find your perfect match with Matcha 💕
+          Find your perfect match with Matcha
         </p>
       </div>
     </div>

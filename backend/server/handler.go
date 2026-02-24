@@ -902,7 +902,7 @@ ORDER BY is_profile_picture DESC, id ASC
 					}
 				}
 				viewer["images"] = images
-				log.Printf("DEBUG: Fetched %d images for viewer ID %d (username: %s)", len(images), id, username)
+
 			} else {
 				viewer["images"] = []string{}
 				log.Printf("ERROR: Failed to fetch images for viewer ID %d: %v", id, err)
@@ -1329,7 +1329,7 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 				}
 			}
 			user["images"] = images
-			log.Printf("DEBUG: Fetched %d images for user ID %d", len(images), userID)
+
 		} else {
 			user["images"] = []string{}
 			log.Printf("ERROR: Failed to fetch images for user ID %d: %v", userID, err)
@@ -1722,12 +1722,6 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			    WHERE (blocker_id = $1 AND blocked_id = u.id)
 			       OR (blocker_id = u.id AND blocked_id = $1)
 			  )` + additionalFilterClause
-
-		log.Printf("DEBUG GetSuggestions - UserID: %d, Gender: %s, Orientation: %s", userID, currentUserGender, currentUserOrientation)
-		log.Printf("DEBUG GetSuggestions - Target genders: %v", targetGenders)
-		log.Printf("DEBUG GetSuggestions - Orientation filter: %s", orientationFilter)
-		log.Printf("DEBUG GetSuggestions - Query: %s", query)
-		log.Printf("DEBUG GetSuggestions - Args: %v", args)
 
 		rows, err := db.Query(query, args...)
 		if err != nil {

@@ -124,14 +124,14 @@ func SendVerificationEmail(email string, db *sql.DB) {
                     <!-- Header -->
                     <tr>
                         <td style="background: linear-gradient(135deg, #ec4899 0%, #f472b6 50%, #a855f7 100%); padding: 40px 30px; text-align: center; border-radius: 16px 16px 0 0;">
-                            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold;">🍵 Matcha</h1>
+                            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold;">Matcha</h1>
                             <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Find your perfect match</p>
                         </td>
                     </tr>
                     <!-- Content -->
                     <tr>
                         <td style="padding: 40px 30px;">
-                            <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Welcome aboard! 👋</h2>
+                            <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Welcome aboard!</h2>
                             <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
                                 Thanks for signing up for Matcha! We're excited to have you join our community.
                             </p>
@@ -160,7 +160,7 @@ func SendVerificationEmail(email string, db *sql.DB) {
                                 If you didn't create an account on Matcha, you can safely ignore this email.
                             </p>
                             <p style="color: #d1d5db; font-size: 12px; margin: 10px 0 0 0;">
-                                © 2026 Matcha. Made with ❤️
+                                © 2026 Matcha.
                             </p>
                         </td>
                     </tr>
@@ -211,14 +211,14 @@ func SendPasswordResetEmail(email, token, username string) error {
                     <!-- Header -->
                     <tr>
                         <td style="background: linear-gradient(135deg, #ec4899 0%, #f472b6 50%, #a855f7 100%); padding: 40px 30px; text-align: center; border-radius: 16px 16px 0 0;">
-                            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold;">🍵 Matcha</h1>
+                            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold;">Matcha</h1>
                             <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Password Reset</p>
                         </td>
                     </tr>
                     <!-- Content -->
                     <tr>
                         <td style="padding: 40px 30px;">
-                            <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Hello ` + username + `! 🔐</h2>
+                            <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Hello ` + username + `!</h2>
                             <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
                                 We received a request to reset your password. No worries, it happens to the best of us!
                             </p>
@@ -230,7 +230,7 @@ func SendPasswordResetEmail(email, token, username string) error {
                                 <tr>
                                     <td align="center">
                                         <a href="` + resetLink + `" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #a855f7); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 30px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">
-                                            🔑 Reset my password
+                                            Reset my password
                                         </a>
                                     </td>
                                 </tr>
@@ -240,7 +240,7 @@ func SendPasswordResetEmail(email, token, username string) error {
                             </p>
                             <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-top: 30px; border-radius: 4px;">
                                 <p style="color: #92400e; font-size: 14px; margin: 0;">
-                                    ⏰ This link will expire in <strong>1 hour</strong>.
+                                    This link will expire in <strong>1 hour</strong>.
                                 </p>
                             </div>
                         </td>
@@ -252,7 +252,7 @@ func SendPasswordResetEmail(email, token, username string) error {
                                 If you didn't request a password reset, you can safely ignore this email.
                             </p>
                             <p style="color: #d1d5db; font-size: 12px; margin: 10px 0 0 0;">
-                                © 2026 Matcha. Made with ❤️
+                                © 2026 Matcha.
                             </p>
                         </td>
                     </tr>

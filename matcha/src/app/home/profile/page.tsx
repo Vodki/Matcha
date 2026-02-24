@@ -88,7 +88,7 @@ export default function Profile() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-4xl">👤</span>
+                        <span className="text-4xl"></span>
                       )}
                     </div>
                   </div>
@@ -120,7 +120,7 @@ export default function Profile() {
                       </span>
                     )}
                     <span className="badge badge-accent">
-                      ⭐ {currentUser?.fameRating?.toFixed(1) || "0.0"}
+                      {currentUser?.fameRating?.toFixed(1) || "0.0"}
                     </span>
                   </div>
                 </div>

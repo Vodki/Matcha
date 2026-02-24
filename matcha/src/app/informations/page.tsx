@@ -246,7 +246,6 @@ export default function InformationsPage() {
         <dialog id="gps_modal" className="modal modal-bottom sm:modal-middle">
           <div className="modal-box glass rounded-3xl max-w-md">
             <div className="text-center mb-6">
-              <div className="text-5xl mb-3">📍</div>
               <h3 className="font-bold text-2xl text-neutral">
                 Location Access
               </h3>
@@ -304,7 +303,6 @@ export default function InformationsPage() {
 
             {gpsChoice === "accepted" && (
               <div className="bg-success/10 rounded-2xl p-4 text-center">
-                <div className="text-4xl mb-2">✅</div>
                 <p className="font-semibold text-success">Location detected!</p>
                 <p className="text-neutral/70 mt-1">{detectedLocation}</p>
               </div>

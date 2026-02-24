@@ -139,7 +139,6 @@ export default function UserProfilePage() {
     return (
       <div className="w-full min-h-screen flex items-center justify-center bg-gradient-hero">
         <div className="glass rounded-3xl p-8 text-center">
-          <div className="text-6xl mb-4">😔</div>
           <h2 className="text-2xl font-bold mb-2">Profile Not Found</h2>
           <p className="text-base-content/60">
             This user may have deactivated their account.
@@ -496,7 +495,7 @@ export default function UserProfilePage() {
               )}
               {theyLikeMe && !isConnected && (
                 <span className="badge badge-secondary badge-lg gap-2 py-3 animate-pulse-soft">
-                  ❤️ Likes you!
+                  Likes you!
                 </span>
               )}
               <span
@@ -516,7 +515,7 @@ export default function UserProfilePage() {
             <div className="glass rounded-2xl p-6 card-hover">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-lg flex items-center gap-2">
-                  <span className="text-2xl">💫</span> Compatibility
+                  <span className="text-2xl"></span> Compatibility
                 </h3>
                 <span className="text-3xl font-bold text-primary">
                   {matchScore}%
@@ -532,7 +531,7 @@ export default function UserProfilePage() {
 
             <div className="glass rounded-2xl p-6 card-hover">
               <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
-                <span className="text-2xl">✨</span> About {profile.firstName}
+                <span className="text-2xl"></span> About {profile.firstName}
               </h3>
               <p className="text-base-content/80 whitespace-pre-wrap leading-relaxed">
                 {profile.bio || "No bio yet..."}
@@ -541,14 +540,14 @@ export default function UserProfilePage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="glass rounded-2xl p-5 card-hover text-center">
-                <div className="text-3xl mb-2">👤</div>
+                <div className="text-3xl mb-2"></div>
                 <p className="text-sm text-base-content/60 mb-1">Gender</p>
                 <p className="font-semibold">
                   {profile.gender || "Not specified"}
                 </p>
               </div>
               <div className="glass rounded-2xl p-5 card-hover text-center">
-                <div className="text-3xl mb-2">💕</div>
+                <div className="text-3xl mb-2"></div>
                 <p className="text-sm text-base-content/60 mb-1">Looking for</p>
                 <p className="font-semibold">
                   {formatPreferences(profile.preferences)}
@@ -558,7 +557,7 @@ export default function UserProfilePage() {
 
             <div className="glass rounded-2xl p-6 card-hover">
               <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                <span className="text-2xl">🏷️</span> Interests
+                <span className="text-2xl"></span> Interests
               </h3>
               <div className="flex flex-wrap gap-2">
                 {profile.interests && profile.interests.length > 0 ? (
@@ -580,7 +579,7 @@ export default function UserProfilePage() {
 
             <div className="glass rounded-2xl p-6 card-hover">
               <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                <span className="text-2xl">📊</span> Profile Stats
+                <span className="text-2xl"></span> Profile Stats
               </h3>
               {statsLoading ? (
                 <div className="flex justify-center py-4">

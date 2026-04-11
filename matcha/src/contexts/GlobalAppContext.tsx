@@ -49,6 +49,8 @@ const initialState: IGlobalState = {
     id: "me",
     firstName: "Alex",
     lastName: "Dupont",
+    email: "alex.dupont@example.com",
+    username: "alexdupont",
     images: ["/alex-dupont.jpg"],
     gender: "Woman",
     preferences: "likes men and women",
@@ -95,7 +97,7 @@ function appReducer(state: IGlobalState, action: AppAction): IGlobalState {
       if (
         likedUserId === currentUserId ||
         state.likes.some(
-          (l) => l.likerId === currentUserId && l.likedId === likedUserId
+          (l) => l.likerId === currentUserId && l.likedId === likedUserId,
         )
       ) {
         return state;
@@ -105,7 +107,7 @@ function appReducer(state: IGlobalState, action: AppAction): IGlobalState {
       const updatedLikes = [...state.likes, newLike];
 
       const isMutual = state.likes.some(
-        (l) => l.likerId === likedUserId && l.likedId === currentUserId
+        (l) => l.likerId === likedUserId && l.likedId === currentUserId,
       );
 
       const fromUserInfo = {
@@ -163,11 +165,11 @@ function appReducer(state: IGlobalState, action: AppAction): IGlobalState {
       const currentUserId = state.currentUser.id;
 
       const wasMutual = state.likes.some(
-        (l) => l.likerId === unlikedUserId && l.likedId === currentUserId
+        (l) => l.likerId === unlikedUserId && l.likedId === currentUserId,
       );
 
       const updatedLikes = state.likes.filter(
-        (l) => !(l.likerId === currentUserId && l.likedId === unlikedUserId)
+        (l) => !(l.likerId === currentUserId && l.likedId === unlikedUserId),
       );
 
       let updatedNotifications = state.notifications;
@@ -210,14 +212,11 @@ function appReducer(state: IGlobalState, action: AppAction): IGlobalState {
       return {
         ...state,
         blockedUserIds: state.blockedUserIds.filter(
-          (id) => id !== action.payload.userId
+          (id) => id !== action.payload.userId,
         ),
       };
 
     case "REPORT_USER":
-      console.log(
-        `User ${action.payload.userId} reported by ${state.currentUser.id}`
-      );
       return state;
 
     case "RECORD_VISIT": {
@@ -296,7 +295,7 @@ function appReducer(state: IGlobalState, action: AppAction): IGlobalState {
       return {
         ...state,
         notifications: state.notifications.map((n) =>
-          n.recipientId === state.currentUser.id ? { ...n, read: true } : n
+          n.recipientId === state.currentUser.id ? { ...n, read: true } : n,
         ),
       };
     }

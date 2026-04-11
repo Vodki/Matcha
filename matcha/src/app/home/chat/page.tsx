@@ -1,52 +1,52 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useGlobalAppContext } from "@/contexts/GlobalAppContext";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import api from "@/services/api";
 
 export default function ChatListPage() {
-  const { state } = useGlobalAppContext();
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const connectedUsers = useMemo(() => {
-    const connectedIds: string[] = [];
-    state.likes.forEach((like1) => {
-      state.likes.forEach((like2) => {
-        if (
-          like1.likerId === like2.likedId &&
-          like1.likedId === like2.likerId
-        ) {
-          if (
-            like1.likerId === state.currentUser.id &&
-            !connectedIds.includes(like1.likedId)
-          ) {
-            connectedIds.push(like1.likedId);
-          }
+  useEffect(() => {
+    const fetchConversations = async () => {
+      try {
+        const response = await api.getConversations();
+        if (response.data?.conversations) {
+          setConversations(response.data.conversations);
         }
-      });
-    });
-    return state.users.filter((u) => connectedIds.includes(u.id));
-  }, [state.likes, state.users, state.currentUser.id]);
+      } catch (error) {
+        console.error("Failed to fetch conversations", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchConversations();
+  }, []);
+
+  if (loading) return <div className="p-10 text-center">Loading chats...</div>;
 
   return (
     <div className="container mx-auto p-4 max-w-3xl mt-20">
       <h1 className="text-3xl font-bold mb-6">Chat</h1>
       <div className="flex flex-col gap-4">
-        {connectedUsers.length > 0 ? (
-          connectedUsers.map((user) => (
+        {conversations.length > 0 ? (
+          conversations.map((user) => (
             <Link href={`/home/chat/${user.id}`} key={user.id}>
               <div className="card bg-base-100 shadow-md hover:shadow-xl transition-shadow p-4 flex flex-row items-center gap-4">
                 <div className="avatar">
                   <div className="w-16 rounded-full">
                     <img
-                      src={user.images?.[0] || "/default-avatar.png"}
-                      alt={user.firstName}
+                      src={user.avatar_url || "/default-avatar.png"}
+                      alt={user.first_name}
                     />
                   </div>
                 </div>
                 <div>
                   <h2 className="card-title">
-                    {user.firstName} {user.lastName}
+                    {user.first_name} {user.last_name}
                   </h2>
                   <p className="text-base-content/70">Click to open chat</p>
                 </div>

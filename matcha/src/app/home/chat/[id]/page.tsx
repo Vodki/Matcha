@@ -2,73 +2,152 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import api from "@/services/api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useGlobalAppContext } from "@/contexts/GlobalAppContext";
+import { websocketService } from "@/services/websocket";
+
+interface Message {
+  id: number;
+  sender_id: number;
+  receiver_id: number;
+  content: string;
+  created_at: string;
+  sender_name?: string;
+}
 
 export default function ChatPage() {
-  const { state, dispatch } = useGlobalAppContext();
+  const { state } = useGlobalAppContext();
+  const { currentUser: realUser } = useCurrentUser();
   const params = useParams();
   const router = useRouter();
-
-  const chatPartnerId = params.id as string;
-  const currentUserId = state.currentUser.id;
-
-  const [newMessage, setNewMessage] = useState("");
-
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
-  const chatPartner = useMemo(() => {
-    return state.users.find((u) => u.id === chatPartnerId);
-  }, [state.users, chatPartnerId]);
+  const chatPartnerId = params.id as string;
+  const chatPartnerIdNum = parseInt(chatPartnerId);
+  const currentUserId = realUser?.id;
 
-  const conversationMessages = useMemo(() => {
-    return state.messages
-      .filter(
-        (msg) =>
-          (msg.fromUserId === currentUserId &&
-            msg.toUserId === chatPartnerId) ||
-          (msg.fromUserId === chatPartnerId && msg.toUserId === currentUserId)
-      )
-      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-  }, [state.messages, currentUserId, chatPartnerId]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [partner, setPartner] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [wsConnected, setWsConnected] = useState(false);
+  const unsubscribeRef = useRef<(() => void)[]>([]);
 
-  const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
+  const fetchMessages = useCallback(async () => {
+    try {
+      const msgRes = await api.getChatHistory(chatPartnerId);
+      if (msgRes.data?.messages) {
+        setMessages(msgRes.data.messages);
+      }
+    } catch (err) {
+      console.error("Error fetching messages", err);
+    }
+  }, [chatPartnerId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        const cachedPartner = state.users.find((u) => u.id === chatPartnerId);
+        if (cachedPartner) {
+          if (isMounted) setPartner(cachedPartner);
+        } else {
+          const userRes = await api.getUserById(chatPartnerId);
+          if (userRes.data && isMounted) {
+            setPartner(userRes.data);
+          }
+        }
+
+        await fetchMessages();
+      } catch (err) {
+        console.error("Error loading chat", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadData();
+
+    websocketService.connect();
+
+    const unsubConnection = websocketService.on(
+      "connection",
+      (data: unknown) => {
+        const status = (data as { status: string }).status;
+        if (isMounted) setWsConnected(status === "connected");
+      },
+    );
+
+    const unsubChat = websocketService.on("chat_message", (data: unknown) => {
+      const msg = data as Message;
+      if (
+        msg.sender_id === chatPartnerIdNum ||
+        msg.receiver_id === chatPartnerIdNum
+      ) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
+    });
+
+    unsubscribeRef.current = [unsubConnection, unsubChat];
+
+    const interval = setInterval(() => {
+      if (!websocketService.isConnected()) {
+        fetchMessages();
+      }
+    }, 10000);
+
+    return () => {
+      isMounted = false;
+      unsubscribeRef.current.forEach((unsub) => unsub());
+      clearInterval(interval);
+    };
+  }, [chatPartnerId, chatPartnerIdNum, state.users, fetchMessages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (newMessage.trim() === "") return;
 
-    dispatch({
-      type: "SEND_MESSAGE",
-      payload: { toUserId: chatPartnerId, content: newMessage.trim() },
-    });
-
+    const content = newMessage.trim();
     setNewMessage("");
 
-    setTimeout(() => {
-      if (!chatPartner) return;
-      dispatch({
-        type: "RECEIVE_BOT_MESSAGE",
-        payload: {
-          id: `bot-msg-${Date.now()}`,
-          fromUserId: chatPartnerId,
-          toUserId: currentUserId,
-          content: `(auto-reply) Thanks for your message!`,
-          timestamp: new Date(),
-          read: false,
-        },
-      });
-    }, 2000);
+    try {
+      const response = await api.sendMessage(parseInt(chatPartnerId), content);
+      if (response.data?.id) {
+        const newMsg: Message = {
+          id: response.data.id,
+          sender_id: parseInt(currentUserId || "0"),
+          receiver_id: chatPartnerIdNum,
+          content: content,
+          created_at: new Date().toISOString(),
+        };
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+      } else {
+        await fetchMessages();
+      }
+    } catch (err) {
+      console.error("Failed to send message", err);
+    }
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  if (loading && !partner) {
+    return <div className="p-10 text-center">Loading chat...</div>;
+  }
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [conversationMessages]);
-
-  if (!chatPartner) {
-    return <div className="p-4 text-center">Chat partner not found.</div>;
+  if (!partner) {
+    return <div className="p-10 text-center">User not found</div>;
   }
 
   return (
@@ -96,48 +175,47 @@ export default function ChatPage() {
         <div className="avatar">
           <div className="w-12 rounded-full">
             <img
-              src={chatPartner.images?.[0]}
-              alt={`Profile picture of ${chatPartner.firstName}`}
+              src={
+                partner.avatar_url ||
+                partner.images?.[0] ||
+                "/default-avatar.png"
+              }
+              alt={`Profile picture of ${partner.first_name || partner.firstName}`}
             />
           </div>
         </div>
-        <div>
-          <h2 className="font-bold text-lg">{chatPartner.firstName}</h2>
-          <span
-            className={`text-sm ${
-              chatPartner.isOnline ? "text-success" : "text-base-content/60"
-            }`}
-          >
-            {chatPartner.isOnline ? "Online" : "Offline"}
-          </span>
+        <div className="flex-1">
+          <h2 className="font-bold text-lg">
+            {partner.first_name || partner.firstName}{" "}
+            {partner.last_name || partner.lastName}
+          </h2>
+          {wsConnected && (
+            <span className="text-xs text-green-500">● Connected</span>
+          )}
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 pt-32 pb-24">
-        {conversationMessages.map((message) => {
-          const isMyMessage = message.fromUserId === currentUserId;
-          const sender = isMyMessage ? state.currentUser : chatPartner;
+        {messages.map((message) => {
+          const isMyMessage =
+            message.sender_id === parseInt(currentUserId || "0");
+          const senderName = isMyMessage
+            ? "Me"
+            : partner.first_name || partner.firstName;
 
+          const timestamp = new Date(message.created_at);
           const formattedTimestamp = new Intl.DateTimeFormat("fr-FR", {
             dateStyle: "short",
             timeStyle: "short",
-          }).format(message.timestamp);
+          }).format(timestamp);
 
           return (
             <div
               key={message.id}
               className={`chat ${isMyMessage ? "chat-end" : "chat-start"}`}
             >
-              <div className="chat-image avatar">
-                <div className="w-10 rounded-full">
-                  <img
-                    src={sender.images?.[0]}
-                    alt={`${sender.firstName}'s avatar`}
-                  />
-                </div>
-              </div>
               <div className="chat-header text-xs opacity-70 mb-1">
-                {sender.firstName}
+                {senderName}
               </div>
               <div
                 className={`chat-bubble ${
@@ -168,20 +246,7 @@ export default function ChatPage() {
             onChange={(e) => setNewMessage(e.target.value)}
           />
           <button type="submit" className="btn btn-primary">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="w-5 h-5"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
-              />
-            </svg>
+            Send
           </button>
         </form>
       </footer>

@@ -17,8 +17,9 @@ export default function ImageGallery({
   aspectClassName = "aspect-[4/5]",
 }: ImageGalleryProps) {
   const [idx, setIdx] = React.useState<number>(0);
-  const hasThumbs = images.length > 1;
-  const currentSrc = images[idx] ?? "/placeholder.png";
+  const safeImages = images || [];
+  const hasThumbs = safeImages.length > 1;
+  const currentSrc = safeImages[idx] ?? "/placeholder.png";
 
   return (
     <div className={className}>
@@ -34,7 +35,7 @@ export default function ImageGallery({
       </div>
       {hasThumbs && (
         <div className="flex items-center gap-2 overflow-x-auto p-3">
-          {images.map((src, i) => (
+          {safeImages.map((src, i) => (
             <button
               key={`${src}-${i}`}
               type="button"

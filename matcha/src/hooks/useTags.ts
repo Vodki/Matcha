@@ -31,7 +31,6 @@ export function useTags() {
       return false;
     }
     
-    // Recharger les tags après l'ajout
     await fetchTags();
     return true;
   };
@@ -46,7 +45,6 @@ export function useTags() {
       return false;
     }
     
-    // Recharger les tags après la suppression
     await fetchTags();
     return true;
   };

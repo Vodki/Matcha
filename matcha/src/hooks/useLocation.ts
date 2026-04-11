@@ -35,7 +35,6 @@ export function useLocation(autoSave: boolean = false) {
 
           setLocation(locationData);
 
-          // Save to backend
           try {
             const result = await api.updateLocation(
               locationData.latitude,
@@ -100,7 +99,6 @@ export function useLocation(autoSave: boolean = false) {
 
           setLocation(locationData);
 
-          // Save to backend
           try {
             const result = await api.updateLocation(
               locationData.latitude,

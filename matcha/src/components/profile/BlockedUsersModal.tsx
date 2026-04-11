@@ -1,12 +1,19 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { Profile } from "../../types/profile";
+import { getImageUrl } from "../../services/api";
+
+type BlockedUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  images?: string[];
+};
 
 interface BlockedUsersModalProps {
   isOpen: boolean;
   onClose: () => void;
-  blockedUsers: Profile[];
+  blockedUsers: BlockedUser[];
   onUnblock: (userId: string) => void;
 }
 
@@ -37,7 +44,11 @@ export default function BlockedUsersModal({
                     <div className="avatar">
                       <div className="w-12 rounded-full">
                         <img
-                          src={user.images?.[0] ?? "/placeholder.jpg"}
+                          src={
+                            user.images?.[0]
+                              ? getImageUrl(user.images[0])
+                              : "/placeholder.jpg"
+                          }
                           alt={user.firstName}
                         />
                       </div>

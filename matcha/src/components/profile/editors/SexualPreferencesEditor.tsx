@@ -19,9 +19,9 @@ export default function SexualPreferencesEditor({
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
-      <option>Men & Women</option>
-      <option>Men</option>
-      <option>Women</option>
+      <option value="likes men and women">Men & Women</option>
+      <option value="likes men">Men</option>
+      <option value="likes women">Women</option>
     </select>
   );
 }

@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import PicturesPicker from "../../utils/PicturePickers";
 import TagsInput from "../../utils/TagInput";
+import ImageManager from "./ImageManager";
 import ProfileSection from "./ProfileSection";
 import GenderEditor from "./editors/GenderEditor";
 import SexualPreferencesEditor from "./editors/SexualPreferencesEditor";
@@ -11,12 +12,11 @@ import FirstnameEditor from "./editors/FirstnameEditor";
 import LastnameEditor from "./editors/LastnameEditor";
 import BirthdateEditor from "./editors/BirthdateEditor";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import api from "../../services/api";
+import api, { getImageUrl } from "../../services/api";
 
 export default function GeneralInformations() {
-  // Récupérer l'utilisateur connecté depuis l'API
   const { currentUser, loading } = useCurrentUser();
-  
+
   const [editMode, setEditMode] = useState<number>(0);
   const [interests, setInterests] = useState<string[]>([]);
   const [pictures, setPictures] = useState<File[]>([]);
@@ -37,7 +37,6 @@ export default function GeneralInformations() {
   } | null>(null);
   const [birthdate, setBirthdate] = useState<Date | null>(null);
 
-  // Charger les données de l'utilisateur connecté
   useEffect(() => {
     if (currentUser) {
       setEmail(currentUser.email || "");
@@ -48,7 +47,7 @@ export default function GeneralInformations() {
       setBiography(currentUser.bio || "");
       setInterests(currentUser.interests || []);
       setBirthdate(currentUser.birthdate || null);
-      
+
       if (currentUser.location) {
         setCurrentLocation({
           latitude: currentUser.location.lat,
@@ -57,6 +56,39 @@ export default function GeneralInformations() {
       }
     }
   }, [currentUser]);
+
+  const [allUserImages, setAllUserImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchAllImages = async () => {
+      if (currentUser?.id) {
+        try {
+          const res = await api.getUserImages(String(currentUser.id));
+          if (res.data?.images) {
+            const imagePaths = res.data.images.map((img: any) => img.path);
+            setAllUserImages(imagePaths);
+          }
+        } catch (err) {
+          console.error("Failed to fetch all images", err);
+        }
+      }
+    };
+    fetchAllImages();
+  }, [currentUser?.id]);
+
+  const refreshImages = async () => {
+    if (currentUser?.id) {
+      try {
+        const res = await api.getUserImages(String(currentUser.id));
+        if (res.data?.images) {
+          const imagePaths = res.data.images.map((img: any) => img.path);
+          setAllUserImages(imagePaths);
+        }
+      } catch (err) {
+        console.error("Failed to refresh images", err);
+      }
+    }
+  };
 
   const [draftEmail, setDraftEmail] = useState<string>("");
   const [draftFirstName, setDraftFirstName] = useState<string>("");
@@ -86,7 +118,7 @@ export default function GeneralInformations() {
     const adult = new Date(
       today.getFullYear() - 18,
       today.getMonth(),
-      today.getDate()
+      today.getDate(),
     );
     return draftBirthdate <= adult && draftBirthdate >= new Date(1900, 0, 1);
   })();
@@ -102,19 +134,10 @@ export default function GeneralInformations() {
   useEffect(() => {
     if (draftGeolocalisation.choice) {
       if (!navigator.geolocation) {
-        const ipGeolocation = async () => {
-          try {
-            const response = await fetch("https://ipapi.co/json/");
-            const data = await response.json();
-            setGeolocalisation((prev) => ({
-              ...prev,
-              localistion: `${data.city}, ${data.region}`,
-            }));
-          } catch (error) {
-            console.error("Error getting IP geolocation: ", error);
-          }
-        };
-        ipGeolocation();
+        setLocationError(
+          "GPS is not supported by your browser. Please enter your location manually.",
+        );
+        setGeolocalisation({ choice: false, localisation: "" });
         return;
       }
       navigator.geolocation.getCurrentPosition(
@@ -127,14 +150,16 @@ export default function GeneralInformations() {
         (error) => {
           if (error.code === error.PERMISSION_DENIED) {
             setLocationError(
-              "Location access was denied. To use this feature, please enable location permissions in your browser settings."
+              "Location access was denied. Please enter your location manually below.",
             );
           } else if (error.code === error.POSITION_UNAVAILABLE) {
             setLocationError(
-              "Your location information is currently unavailable."
+              "Your location information is currently unavailable. Please enter your location manually.",
             );
           } else if (error.code === error.TIMEOUT) {
-            setLocationError("The request to get your location timed out.");
+            setLocationError(
+              "The request to get your location timed out. Please enter your location manually.",
+            );
           }
           setGeolocalisation({ choice: false, localisation: "" });
         },
@@ -142,7 +167,7 @@ export default function GeneralInformations() {
           enableHighAccuracy: true,
           timeout: 20000,
           maximumAge: 5000,
-        }
+        },
       );
     }
   }, [draftGeolocalisation.choice]);
@@ -157,12 +182,18 @@ export default function GeneralInformations() {
               headers: {
                 "User-Agent": "Matcha",
               },
-            }
+            },
           );
           const data = await response.json();
+          const locationString = data.display_name;
+
           setDraftGeolocalisation((prev) => ({
             ...prev,
-            localisation: data.display_name,
+            localisation: locationString,
+          }));
+          setGeolocalisation((prev) => ({
+            ...prev,
+            localisation: locationString,
           }));
         } catch (error) {
           console.error("Error reverse geocoding: ", error);
@@ -195,7 +226,9 @@ export default function GeneralInformations() {
     setEditMode(2);
   };
   const handleSaveSexualPreferences = async () => {
-    const result = await api.updateProfile({ orientation: draftSexualPreferences });
+    const result = await api.updateProfile({
+      orientation: draftSexualPreferences,
+    });
     if (result.error) {
       console.error("Error updating sexual preferences:", result.error);
       alert("Failed to update sexual preferences: " + result.error);
@@ -253,6 +286,7 @@ export default function GeneralInformations() {
     setPictures(draftPictures);
     setProfilePicIdx(draftProfilePicIdx);
     setEditMode(0);
+    refreshImages();
   };
   const handleCancelPictures = () => {
     setEditMode(0);
@@ -316,7 +350,27 @@ export default function GeneralInformations() {
     setDraftGeolocalisation(geolocalisation);
     setEditMode(9);
   };
-  const handleSaveGeolocalisation = () => {
+  const handleSaveGeolocalisation = async () => {
+    if (
+      !draftGeolocalisation.choice &&
+      !draftGeolocalisation.localisation.trim()
+    ) {
+      alert("Please enter your location manually.");
+      return;
+    }
+
+    if (currentLocation) {
+      const locResult = await api.updateLocation(
+        currentLocation.latitude,
+        currentLocation.longitude,
+      );
+      if (locResult.error) {
+        console.error("Error updating location:", locResult.error);
+        alert("Failed to save location: " + locResult.error);
+        return;
+      }
+    }
+
     setGeolocalisation(draftGeolocalisation);
     setEditMode(0);
   };
@@ -330,8 +384,11 @@ export default function GeneralInformations() {
   };
   const handleSaveBirthdate = async () => {
     if (isDraftBirthdateValid && draftBirthdate) {
-      // Formater la date au format YYYY-MM-DD pour le backend
-      const formattedDate = draftBirthdate.toISOString().split('T')[0];
+      const year = draftBirthdate.getFullYear();
+      const month = String(draftBirthdate.getMonth() + 1).padStart(2, "0");
+      const day = String(draftBirthdate.getDate()).padStart(2, "0");
+      const formattedDate = `${year}-${month}-${day}`;
+
       const result = await api.updateProfile({ birthday: formattedDate });
       if (result.error) {
         console.error("Error updating birthdate:", result.error);
@@ -392,7 +449,19 @@ export default function GeneralInformations() {
         />
         <ProfileSection
           label="Interests"
-          displayValue={interests}
+          displayValue={
+            interests.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {interests.map((tag, i) => (
+                  <span key={i} className="badge badge-primary badge-outline">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              "No interests yet"
+            )
+          }
           editorComponent={
             <TagsInput
               interests={draftInterests}
@@ -409,27 +478,38 @@ export default function GeneralInformations() {
         <ProfileSection
           label="Pictures"
           displayValue={
-            <PicturesPicker
-              pictures={pictures}
-              setPictures={setPictures}
-              profilePicIdx={profilePicIdx}
-              setProfilePicIdx={setProfilePicIdx}
-              displayMode={true}
-              removeTitle={true}
-            />
+            allUserImages && allUserImages.length > 0 ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                {allUserImages.map((img: string, i: number) => (
+                  <div
+                    key={i}
+                    className="relative aspect-square rounded-lg overflow-hidden group"
+                  >
+                    <img
+                      src={getImageUrl(img)}
+                      alt={`Photo ${i + 1}`}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                    />
+                    {i === 0 && (
+                      <div className="absolute top-1 right-1 badge badge-primary badge-xs font-semibold shadow-md">
+                        Profile
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span className="text-base-content/60">No photos yet</span>
+            )
           }
           editorComponent={
-            <PicturesPicker
-              pictures={draftPictures}
-              setPictures={setDraftPictures}
-              profilePicIdx={profilePicIdx}
-              setProfilePicIdx={setProfilePicIdx}
-              removeTitle={true}
-            />
+            currentUser?.id ? (
+              <ImageManager userId={String(currentUser.id)} />
+            ) : null
           }
           isEditing={editMode === 5}
           onEditClick={handleEditPictures}
-          onSave={handleSavePictures}
+          onSave={() => setEditMode(0)}
           onCancel={handleCancelPictures}
           isDisabled={editMode !== 0 && editMode !== 5}
         />
@@ -516,15 +596,18 @@ export default function GeneralInformations() {
                   type="radio"
                   name="gps-radio"
                   className="radio"
-                  checked={geolocalisation.choice}
+                  checked={draftGeolocalisation.choice}
                   onChange={() =>
-                    setGeolocalisation((prev) => ({ ...prev, choice: true }))
-                  }
-                  disabled={
-                    !geolocalisation.choice && locationError.length !== 0
+                    setDraftGeolocalisation((prev) => ({
+                      ...prev,
+                      choice: true,
+                    }))
                   }
                   onClick={() =>
-                    setGeolocalisation((prev) => ({ ...prev, choice: true }))
+                    setDraftGeolocalisation((prev) => ({
+                      ...prev,
+                      choice: true,
+                    }))
                   }
                 />
                 <p className="ms-4">Yes</p>
@@ -534,12 +617,18 @@ export default function GeneralInformations() {
                   type="radio"
                   name="gps-radio"
                   className="radio"
-                  checked={!geolocalisation.choice}
+                  checked={!draftGeolocalisation.choice}
                   onChange={() =>
-                    setGeolocalisation({ choice: false, localisation: "" })
+                    setDraftGeolocalisation((prev) => ({
+                      choice: false,
+                      localisation: prev.localisation,
+                    }))
                   }
                   onClick={() => {
-                    setGeolocalisation({ choice: false, localisation: "" });
+                    setDraftGeolocalisation((prev) => ({
+                      choice: false,
+                      localisation: prev.localisation,
+                    }));
                   }}
                 />
                 <p className="ms-4">No</p>
@@ -549,7 +638,7 @@ export default function GeneralInformations() {
                   <input
                     type="text"
                     placeholder="Type here"
-                    className="input"
+                    className="input w-full"
                     value={draftGeolocalisation.localisation}
                     onChange={(e) =>
                       setDraftGeolocalisation({
@@ -560,6 +649,25 @@ export default function GeneralInformations() {
                   />
                   <p className="label text-xs ms-3">
                     You can adjust the GPS position
+                  </p>
+                </div>
+              )}
+              {!draftGeolocalisation.choice && (
+                <div className="mt-4">
+                  <input
+                    type="text"
+                    placeholder="Enter your location (e.g., Paris, France)"
+                    className="input w-full"
+                    value={draftGeolocalisation.localisation}
+                    onChange={(e) =>
+                      setDraftGeolocalisation({
+                        choice: false,
+                        localisation: e.target.value,
+                      })
+                    }
+                  />
+                  <p className="label text-xs ms-3 text-warning">
+                    * Required: Please enter your location manually
                   </p>
                 </div>
               )}

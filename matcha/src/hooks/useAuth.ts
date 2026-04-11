@@ -6,14 +6,11 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Vérifier si l'utilisateur est authentifié au chargement
     checkAuth();
   }, []);
 
   const checkAuth = async () => {
     try {
-      // On pourrait vérifier avec un endpoint /auth/me ou similaire
-      // Pour l'instant on suppose que si on a un cookie session_token, on est connecté
       setIsLoading(false);
     } catch (error) {
       setIsAuthenticated(false);

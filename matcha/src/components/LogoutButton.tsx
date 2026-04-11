@@ -15,7 +15,6 @@ export default function LogoutButton() {
       return;
     }
 
-    // Redirection vers la page de connexion
     router.push("/sign-in");
   };
 

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import api from '../services/api';
+import { useState, useEffect, useCallback } from "react";
+import api from "../services/api";
+import { Profile, backendUserToProfile } from "../types/profile";
 
 interface ProfileStats {
   views: number;
@@ -14,16 +15,18 @@ export function useFameRating(userId: string) {
     fame_rating: 0,
   });
   const [isLiked, setIsLiked] = useState(false);
+  const [likedBack, setLikedBack] = useState(false);
+  const [viewers, setViewers] = useState<any[]>([]);
+  const [likers, setLikers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Récupérer les statistiques du profil
   const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     const result = await api.getProfileStats(userId);
-    
+
     if (result.error) {
       setError(result.error);
       setLoading(false);
@@ -37,26 +40,46 @@ export function useFameRating(userId: string) {
     setLoading(false);
   }, [userId]);
 
-  // Vérifier si l'utilisateur actuel a liké ce profil
   const fetchLikeStatus = useCallback(async () => {
     const result = await api.checkLikeStatus(userId);
-    
+
     if (result.data) {
       setIsLiked(result.data.liked);
+      setLikedBack(result.data.liked_back);
     }
   }, [userId]);
 
-  // Enregistrer une vue de profil
+  const fetchViewers = useCallback(async () => {
+    const result = await api.getProfileViewers(userId);
+
+    if (result.data?.viewers) {
+      const transformedViewers = result.data.viewers.map((viewer: any) =>
+        backendUserToProfile(viewer),
+      );
+      setViewers(transformedViewers);
+    }
+  }, [userId]);
+
+  const fetchLikers = useCallback(async () => {
+    const result = await api.getProfileLikers(userId);
+
+    if (result.data?.likers) {
+      const transformedLikers = result.data.likers.map((liker: any) =>
+        backendUserToProfile(liker),
+      );
+      setLikers(transformedLikers);
+    }
+  }, [userId]);
+
   const recordView = useCallback(async () => {
     await api.recordProfileView(userId);
-    // Rafraîchir les stats après avoir enregistré la vue
     fetchStats();
-  }, [userId, fetchStats]);
+    fetchViewers();
+  }, [userId, fetchStats, fetchViewers]);
 
-  // Toggle like/unlike
   const toggleLike = useCallback(async () => {
     const result = await api.toggleProfileLike(userId);
-    
+
     if (result.error) {
       setError(result.error);
       return;
@@ -64,20 +87,24 @@ export function useFameRating(userId: string) {
 
     if (result.data) {
       setIsLiked(result.data.liked);
-      // Rafraîchir les stats après le toggle
       fetchStats();
+      fetchLikers();
     }
-  }, [userId, fetchStats]);
+  }, [userId, fetchStats, fetchLikers]);
 
-  // Charger les données initiales
   useEffect(() => {
     fetchStats();
     fetchLikeStatus();
-  }, [fetchStats, fetchLikeStatus]);
+    fetchViewers();
+    fetchLikers();
+  }, [fetchStats, fetchLikeStatus, fetchViewers, fetchLikers]);
 
   return {
     stats,
     isLiked,
+    likedBack,
+    viewers,
+    likers,
     loading,
     error,
     recordView,

@@ -62,7 +62,6 @@ services:
       - "3000:3000"
     volumes:
       - ./matcha:/app
-      # Utilisez un volume nommé pour node_modules au lieu de le monter depuis l'hôte
       - frontend_node_modules:/app/node_modules
       - /app/.next
     profiles: [dev]

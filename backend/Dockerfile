@@ -1,4 +1,10 @@
-FROM golang:1.24-alpine AS base
+# Multi-stage Dockerfile for Go backend
+# Syntax: docker/dockerfile:1
+
+########################
+# Base modules cache   #
+########################
+FROM golang:1.25-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache bash curl git ca-certificates
 COPY go.mod go.sum ./

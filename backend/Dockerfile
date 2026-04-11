@@ -4,7 +4,7 @@
 ########################
 # Base modules cache   #
 ########################
-FROM golang:1.24-alpine AS base
+FROM golang:1.25-alpine AS base
 WORKDIR /app
 # Install build tools if needed later (e.g. goose)
 RUN apk add --no-cache bash curl git ca-certificates

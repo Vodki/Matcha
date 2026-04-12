@@ -106,7 +106,7 @@ func SendVerificationEmail(email string, db *sql.DB) {
 	}
 
 	fromEmail := "louis.sylvestre26@gmail.com"
-	verifyLink := "http://localhost:8080/auth/verify?token=" + token
+	verifyLink := "http://localhost:3000/auth/verify?token=" + token
 
 	subject := "Welcome to Matcha! Verify your email"
 

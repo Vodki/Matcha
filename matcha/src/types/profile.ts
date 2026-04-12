@@ -91,9 +91,8 @@ export function backendUserToProfile(backendUser: BackendUserProfile): Profile {
     interests: backendUser.tags || [],
     birthdate: backendUser.birthday
       ? (() => {
-          const [year, month, day] = backendUser.birthday
-            .split("-")
-            .map(Number);
+          const datePart = backendUser.birthday.split("T")[0];
+          const [year, month, day] = datePart.split("-").map(Number);
           return new Date(year, month - 1, day);
         })()
       : new Date(2000, 0, 1),

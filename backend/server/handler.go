@@ -35,6 +35,7 @@ func RegisterHandler(db *sql.DB) gin.HandlerFunc {
 		email := c.PostForm("email")
 		lastName := c.PostForm("last_name")
 		firstName := c.PostForm("first_name")
+		birthday := c.PostForm("birthday")
 
 		var exists bool
 		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1 OR email = $2)", username, email).Scan(&exists)
@@ -59,9 +60,9 @@ func RegisterHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		_, err = db.Exec(
-			`INSERT INTO users (email, password_hash, first_name, last_name, username) 
-         VALUES ($1, $2, $3, $4, $5)`,
-			email, hashedPassword, firstName, lastName, username,
+			`INSERT INTO users (email, password_hash, first_name, last_name, username, birthday) 
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+			email, hashedPassword, firstName, lastName, username, birthday,
 		)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Error inserting user"})

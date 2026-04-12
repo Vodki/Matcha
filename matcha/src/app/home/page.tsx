@@ -61,25 +61,6 @@ export default function SuggestedProfilesPage() {
     error: currentUserError,
   } = useCurrentUser();
 
-  const myAge = currentUser?.birthdate
-    ? ageFromBirthdate(currentUser.birthdate)
-    : 18;
-  const minAgeAll = myAge - 2 >= 18 ? myAge - 2 : 18;
-  const maxAgeAll = myAge + 2 <= 99 ? myAge + 2 : 99;
-
-  const suggestionsDefaultQuery: Query = useMemo(
-    () => ({
-      sortBy: "best",
-      sortDir: "desc",
-      minAge: minAgeAll,
-      maxAge: maxAgeAll,
-      maxDistanceKm: 999999,
-      minFame: 0,
-      selectedTags: [],
-    }),
-    [minAgeAll, maxAgeAll],
-  );
-
   const searchDefaultQuery: Query = {
     sortBy: "age",
     sortDir: "desc",

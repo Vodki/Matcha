@@ -1658,19 +1658,40 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 		var additionalFilters []string
 
 		if tagsStr != "" {
-			requiredTags := strings.Split(tagsStr, ",")
-			for _, tag := range requiredTags {
-				trimmed := strings.TrimSpace(tag)
-				if trimmed != "" {
-					args = append(args, trimmed)
-					additionalFilters = append(additionalFilters, fmt.Sprintf(`EXISTS (
+                        const maxRequiredTags = 10
+
+                        requiredTags := strings.Split(tagsStr, ",")
+                        uniqueRequiredTags := make([]string, 0, len(requiredTags))
+                        seenTags := make(map[string]struct{}, len(requiredTags))
+
+                        for _, tag := range requiredTags {
+                                trimmed := strings.TrimSpace(tag)
+                                if trimmed == "" {
+                                        continue
+                                }
+                                trimmed = strings.ToLower(trimmed)
+                                if _, exists := seenTags[trimmed]; exists {
+                                        continue
+                                }
+
+                                seenTags[trimmed] = struct{}{}
+                                uniqueRequiredTags = append(uniqueRequiredTags, trimmed)
+
+                                if len(uniqueRequiredTags) > maxRequiredTags {
+                                        c.JSON(400, gin.H{"error": fmt.Sprintf("Too many tags provided; maximum is %d", maxRequiredTags)})
+                                        return
+                                }
+                        }
+
+                        for _, tag := range uniqueRequiredTags {
+                                args = append(args, tag)
+                                additionalFilters = append(additionalFilters, fmt.Sprintf(`EXISTS (
                                                 SELECT 1 FROM user_tags ut
                                                 JOIN tags t ON ut.tag_id = t.id
-                                                WHERE ut.user_id = u.id AND t.name = $%d
+                                                WHERE ut.user_id = u.id AND LOWER(t.name) = $%d
                                         )`, len(args)))
-				}
-			}
 		}
+                }
 
 		if minAgeStr != "" || maxAgeStr != "" {
 			minAge := 18

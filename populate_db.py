@@ -113,6 +113,11 @@ def create_user(index):
     # Random fame rating (0.00 to 100.00)
     fame_rating = round(random.uniform(0, 100), 2)
     
+    # Generate random profile picture matching gender
+    gender_path = "men" if gender == "Man" else "women"
+    image_num = random.randint(1, 99)
+    avatar_url = f"https://randomuser.me/api/portraits/{gender_path}/{image_num}.jpg"
+    
     return {
         'username': username,
         'email': email,
@@ -127,6 +132,7 @@ def create_user(index):
         'lon': lon,
         'tags': user_tags,
         'fame_rating': fame_rating,
+        'avatar_url': avatar_url,
         'verified': True  # Auto-verify test users
     }
 
@@ -154,6 +160,7 @@ def populate_database():
         # Create users
         print(f"👥 Creating {NUM_USERS} users...")
         users_created = 0
+        user_ids = []
         
         for i in range(1, NUM_USERS + 1):
             try:
@@ -163,17 +170,24 @@ def populate_database():
                 cur.execute("""
                     INSERT INTO users (
                         username, email, password_hash, first_name, last_name,
-                        gender, orientation, birthday, bio, verified, fame_rating
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        gender, orientation, birthday, bio, verified, fame_rating, avatar_url
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """, (
                     user['username'], user['email'], user['password_hash'],
                     user['first_name'], user['last_name'], user['gender'],
                     user['orientation'], user['birthday'], user['bio'],
-                    user['verified'], user['fame_rating']
+                    user['verified'], user['fame_rating'], user['avatar_url']
                 ))
                 
                 user_id = cur.fetchone()[0]
+                user_ids.append(user_id)
+                
+                # Insert profile picture into user_images table
+                cur.execute("""
+                    INSERT INTO user_images (user_id, path, is_profile_picture)
+                    VALUES (%s, %s, true)
+                """, (user_id, user['avatar_url']))
                 
                 # Insert location
                 cur.execute("""
@@ -200,6 +214,46 @@ def populate_database():
                 continue
         
         conn.commit()
+        
+        # Populate views and likes to set realistic fame ratings
+        print("👁️  Generating realistic profile views and likes to establish fame ratings...")
+        views_created = 0
+        likes_created = 0
+        
+        for u_id in user_ids:
+            # Each user receives between 10 and 100 views to build their fame
+            total_receive_views = random.randint(10, 100)
+            
+            # They will get likes based on a random target rating
+            target_rating = round(random.uniform(0.1, 0.9), 2)  # Between 10% and 90% fame
+            total_receive_likes = int(total_receive_views * target_rating)
+            
+            viewers = random.sample([x for x in user_ids if x != u_id], total_receive_views)
+            likers = random.sample(viewers, total_receive_likes) # Likers must be a subset of viewers
+            
+            # Insert views
+            for viewer_id in viewers:
+                cur.execute("""
+                    INSERT INTO profile_views (viewer_id, viewed_id, viewed_at)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (viewer_id, viewed_id) DO NOTHING
+                """, (viewer_id, u_id, datetime.now() - timedelta(days=random.randint(0, 30))))
+                views_created += 1
+                
+            # Insert likes
+            for liker_id in likers:
+                cur.execute("""
+                    INSERT INTO profile_likes (liker_id, liked_id, liked_at)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (liker_id, liked_id) DO NOTHING
+                """, (liker_id, u_id, datetime.now() - timedelta(days=random.randint(0, 30))))
+                likes_created += 1
+                
+            # Database triggers will automatically recalculate user's `fame_rating` and cap it at 100
+        
+        conn.commit()
+        print(f"   ✓ Generated {views_created} profile views and {likes_created} profile likes")
+        
         print(f"\n✅ Successfully created {users_created} users!")
         print(f"📍 All users have locations assigned")
         print(f"🏷️  All users have tags assigned")

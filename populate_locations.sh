@@ -3,6 +3,8 @@
 # Script to populate the database with test users and locations
 # This helps test the geolocation features
 
+export LC_NUMERIC="C"
+
 echo "🌍 Populating database with test locations..."
 
 # Cities in France with coordinates

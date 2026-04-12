@@ -42,7 +42,7 @@ function parseOrientation(pref?: string): OrientationStr {
   return "likes men and women";
 }
 
-type SortKey = "best" | "age" | "distance" | "fame" | "tags";
+type SortKey = "best" | "age" | "distance" | "fame";
 
 type Query = {
   sortBy: SortKey;
@@ -61,25 +61,6 @@ export default function SuggestedProfilesPage() {
     error: currentUserError,
   } = useCurrentUser();
 
-  const myAge = currentUser?.birthdate
-    ? ageFromBirthdate(currentUser.birthdate)
-    : 18;
-  const minAgeAll = myAge - 2 >= 18 ? myAge - 2 : 18;
-  const maxAgeAll = myAge + 2 <= 99 ? myAge + 2 : 99;
-
-  const suggestionsDefaultQuery: Query = useMemo(
-    () => ({
-      sortBy: "best",
-      sortDir: "desc",
-      minAge: minAgeAll,
-      maxAge: maxAgeAll,
-      maxDistanceKm: 999999,
-      minFame: 0,
-      selectedTags: [],
-    }),
-    [minAgeAll, maxAgeAll],
-  );
-
   const searchDefaultQuery: Query = {
     sortBy: "age",
     sortDir: "desc",
@@ -90,33 +71,8 @@ export default function SuggestedProfilesPage() {
     selectedTags: [],
   };
 
-  const [activeTab, setActiveTab] = useState<"suggestions" | "search">(
-    "suggestions",
-  );
-
-  const hasInitializedFilters = React.useRef(false);
-
-  const [suggestionsQuery, setSuggestionsQuery] = useState<Query>(() => ({
-    sortBy: "best",
-    sortDir: "desc",
-    minAge: 18,
-    maxAge: 99,
-    maxDistanceKm: 999999,
-    minFame: 0,
-    selectedTags: [],
-  }));
-  const [searchQuery, setSearchQuery] = useState<Query>(searchDefaultQuery);
-
-  const [suggestionsInput, setSuggestionsInput] = useState<Query>(() => ({
-    sortBy: "best",
-    sortDir: "desc",
-    minAge: 18,
-    maxAge: 99,
-    maxDistanceKm: 999999,
-    minFame: 0,
-    selectedTags: [],
-  }));
-  const [searchInput, setSearchInput] = useState<Query>(searchDefaultQuery);
+  const [query, setQuery] = useState<Query>(searchDefaultQuery);
+  const [queryInput, setQueryInput] = useState<Query>(searchDefaultQuery);
 
   React.useEffect(() => {
     if (currentUser?.birthdate) {
@@ -124,12 +80,12 @@ export default function SuggestedProfilesPage() {
       const minAge = userAge - 2 >= 18 ? userAge - 2 : 18;
       const maxAge = userAge + 2 <= 99 ? userAge + 2 : 99;
 
-      setSuggestionsQuery((prev) => ({
+      setQuery((prev) => ({
         ...prev,
         minAge,
         maxAge,
       }));
-      setSuggestionsInput((prev) => ({
+      setQueryInput((prev) => ({
         ...prev,
         minAge,
         maxAge,
@@ -137,24 +93,16 @@ export default function SuggestedProfilesPage() {
     }
   }, [currentUser?.birthdate]);
 
-  const activeQueryInput =
-    activeTab === "suggestions" ? suggestionsInput : searchInput;
-  const setActiveQueryInput =
-    activeTab === "suggestions" ? setSuggestionsInput : setSearchInput;
-
-  const queryToApply =
-    activeTab === "suggestions" ? suggestionsQuery : searchQuery;
-
   const {
     profiles: backendProfiles,
     loading,
     error,
   } = useProfiles({
-    minAge: queryToApply.minAge,
-    maxAge: queryToApply.maxAge,
-    minFame: queryToApply.minFame,
-    maxDistance: queryToApply.maxDistanceKm,
-    tags: queryToApply.selectedTags,
+    minAge: query.minAge,
+    maxAge: query.maxAge,
+    minFame: query.minFame,
+    maxDistance: query.maxDistanceKm,
+    tags: query.selectedTags,
   });
 
   const allProfiles = useMemo(() => {
@@ -188,34 +136,29 @@ export default function SuggestedProfilesPage() {
       };
     });
 
-    const queryToApply =
-      activeTab === "suggestions" ? suggestionsQuery : searchQuery;
-
     const sorted = [...enriched].sort((a, b) => {
-      const mult = queryToApply.sortDir === "asc" ? 1 : -1;
-      switch (queryToApply.sortBy) {
+      const mult = query.sortDir === "asc" ? 1 : -1;
+      switch (query.sortBy) {
         case "age":
           return mult * (a.age - b.age);
         case "distance":
           return mult * (a.distanceKm - b.distanceKm);
         case "fame":
           return mult * (a.profile.fameRating - b.profile.fameRating);
-        case "tags":
-          return mult * (a.commonTags - b.commonTags);
         default:
           return mult * (a.score - b.score);
       }
     });
 
     return sorted;
-  }, [activeTab, suggestionsQuery, searchQuery, allProfiles, currentUser]);
+  }, [query, allProfiles, currentUser]);
 
   const handleInputChange = (field: keyof Query, value: unknown) => {
-    setActiveQueryInput((prev) => ({ ...prev, [field]: value }));
+    setQueryInput((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleTagClick = (tag: string) => {
-    setActiveQueryInput((currentInput) => {
+    setQueryInput((currentInput) => {
       const currentTags = currentInput.selectedTags;
       const newTags = currentTags.includes(tag)
         ? currentTags.filter((t) => t !== tag)
@@ -225,21 +168,12 @@ export default function SuggestedProfilesPage() {
   };
 
   const handleApplyClick = () => {
-    if (activeTab === "suggestions") {
-      setSuggestionsQuery(suggestionsInput);
-    } else {
-      setSearchQuery(searchInput);
-    }
+    setQuery(queryInput);
   };
 
   const resetFilters = () => {
-    if (activeTab === "suggestions") {
-      setSuggestionsInput(suggestionsDefaultQuery);
-      setSuggestionsQuery(suggestionsDefaultQuery);
-    } else {
-      setSearchInput(searchDefaultQuery);
-      setSearchQuery(searchDefaultQuery);
-    }
+    setQueryInput(searchDefaultQuery);
+    setQuery(searchDefaultQuery);
   };
 
   if (loading || loadingCurrentUser) {
@@ -272,36 +206,9 @@ export default function SuggestedProfilesPage() {
 
   return (
     <div className="w-full min-h-screen p-4 sm:p-6">
-      <div className="flex justify-center mb-6">
-        <div className="inline-flex bg-base-200/50 rounded-full p-1 gap-1">
-          <button
-            className={`px-6 py-2 rounded-full font-medium transition-all duration-300 ${
-              activeTab === "suggestions"
-                ? "bg-primary text-primary-content shadow-md"
-                : "text-base-content/70 hover:text-base-content hover:bg-base-100"
-            }`}
-            onClick={() => setActiveTab("suggestions")}
-          >
-            Suggested for you
-          </button>
-          <button
-            className={`px-6 py-2 rounded-full font-medium transition-all duration-300 ${
-              activeTab === "search"
-                ? "bg-primary text-primary-content shadow-md"
-                : "text-base-content/70 hover:text-base-content hover:bg-base-100"
-            }`}
-            onClick={() => setActiveTab("search")}
-          >
-            Advanced search
-          </button>
-        </div>
-      </div>
-
       <div className="rounded-box bg-base-100 shadow-sm ring-1 ring-base-200/50 p-4 mb-6">
         <h1 className="text-xl font-bold mb-4">
-          {activeTab === "suggestions"
-            ? "Filter suggestions"
-            : "Set your search criteria"}
+          Advanced search
         </h1>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
@@ -310,29 +217,26 @@ export default function SuggestedProfilesPage() {
             <div className="flex items-center gap-2">
               <select
                 className="select select-bordered select-sm w-full max-w-xs"
-                value={activeQueryInput.sortBy}
+                value={queryInput.sortBy}
                 onChange={(e) =>
                   handleInputChange("sortBy", e.target.value as SortKey)
                 }
               >
-                {activeTab === "suggestions" && (
-                  <option value="best">Best match</option>
-                )}
+                <option value="best">Best match</option>
                 <option value="age">Age</option>
                 <option value="distance">Distance</option>
                 <option value="fame">Fame</option>
-                <option value="tags">Common tags</option>
               </select>
               <button
                 className="btn btn-sm btn-outline"
                 onClick={() =>
                   handleInputChange(
                     "sortDir",
-                    activeQueryInput.sortDir === "asc" ? "desc" : "asc",
+                    queryInput.sortDir === "asc" ? "desc" : "asc",
                   )
                 }
               >
-                {activeQueryInput.sortDir === "asc" ? "↑" : "↓"}
+                {queryInput.sortDir === "asc" ? "↑" : "↓"}
               </button>
             </div>
           </div>
@@ -346,9 +250,9 @@ export default function SuggestedProfilesPage() {
                 <input
                   type="number"
                   className="input input-bordered input-sm w-20"
-                  value={activeQueryInput.minAge}
+                  value={queryInput.minAge}
                   min={18}
-                  max={activeQueryInput.maxAge}
+                  max={queryInput.maxAge}
                   onChange={(e) =>
                     handleInputChange("minAge", Number(e.target.value))
                   }
@@ -357,8 +261,8 @@ export default function SuggestedProfilesPage() {
                 <input
                   type="number"
                   className="input input-bordered input-sm w-20"
-                  value={activeQueryInput.maxAge}
-                  min={activeQueryInput.minAge}
+                  value={queryInput.maxAge}
+                  min={queryInput.minAge}
                   max={99}
                   onChange={(e) =>
                     handleInputChange("maxAge", Number(e.target.value))
@@ -375,7 +279,7 @@ export default function SuggestedProfilesPage() {
                 className="input input-bordered input-sm w-full max-w-xs"
                 min={0}
                 max={100}
-                value={activeQueryInput.minFame}
+                value={queryInput.minFame}
                 onChange={(e) =>
                   handleInputChange("minFame", Number(e.target.value))
                 }
@@ -392,7 +296,7 @@ export default function SuggestedProfilesPage() {
                 type="number"
                 className="input input-bordered input-sm w-full max-w-xs"
                 min={0}
-                value={activeQueryInput.maxDistanceKm}
+                value={queryInput.maxDistanceKm}
                 onChange={(e) =>
                   handleInputChange("maxDistanceKm", Number(e.target.value))
                 }
@@ -409,7 +313,7 @@ export default function SuggestedProfilesPage() {
                     key={tag}
                     onClick={() => handleTagClick(tag)}
                     className={`btn btn-xs ${
-                      activeQueryInput.selectedTags.includes(tag)
+                      queryInput.selectedTags.includes(tag)
                         ? "btn-primary"
                         : "btn-ghost"
                     }`}
@@ -424,7 +328,7 @@ export default function SuggestedProfilesPage() {
 
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-base-200 pt-4">
           <button className="btn btn-primary btn-sm" onClick={handleApplyClick}>
-            {activeTab === "suggestions" ? "Apply filters" : "Search"}
+            Search
           </button>
           <button className="btn btn-ghost btn-sm" onClick={resetFilters}>
             Reset
@@ -433,8 +337,7 @@ export default function SuggestedProfilesPage() {
       </div>
 
       <h2 className="text-2xl font-bold mb-4">
-        {activeTab === "suggestions" ? "Suggested profiles" : "Search results"}{" "}
-        ({displayedProfiles.length})
+        Search results ({displayedProfiles.length})
       </h2>
 
       <div className="overflow-x-auto">

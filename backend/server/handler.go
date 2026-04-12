@@ -1653,8 +1653,24 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 		maxAgeStr := c.DefaultQuery("maxAge", "")
 		minFameStr := c.DefaultQuery("minFame", "")
 		maxDistanceStr := c.DefaultQuery("maxDistance", "")
+		tagsStr := c.DefaultQuery("tags", "")
 
 		var additionalFilters []string
+
+		if tagsStr != "" {
+			requiredTags := strings.Split(tagsStr, ",")
+			for _, tag := range requiredTags {
+				trimmed := strings.TrimSpace(tag)
+				if trimmed != "" {
+					args = append(args, trimmed)
+					additionalFilters = append(additionalFilters, fmt.Sprintf(`EXISTS (
+                                                SELECT 1 FROM user_tags ut
+                                                JOIN tags t ON ut.tag_id = t.id
+                                                WHERE ut.user_id = u.id AND t.name = $%d
+                                        )`, len(args)))
+				}
+			}
+		}
 
 		if minAgeStr != "" || maxAgeStr != "" {
 			minAge := 18
@@ -1839,10 +1855,28 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			}
 
 			totalTags := len(currentUserTags) + len(tags) - commonCount
-			matchScore := 0.0
+			tagsScore := 0.0
 			if totalTags > 0 {
-				matchScore = (float64(commonCount) / float64(totalTags)) * 100
+				tagsScore = (float64(commonCount) / float64(totalTags)) * 100.0
 			}
+
+			distanceScore := 0.0
+			if user["distance_km"] != nil {
+				if d, ok := user["distance_km"].(float64); ok && d >= 0 {
+					// Maximum distance score is 100 at 0km.
+					// Drops to 0 at 500km distance (e.g. 0.2 penalty per km).
+					distanceScore = math.Max(0.0, 100.0-(d*0.2))
+				}
+			}
+
+			fScore := 0.0
+			if fameRating.Valid {
+				fScore = fameRating.Float64
+			}
+
+			// Compatibility score: 50% distance, 30% tags, 20% fame
+			matchScore := (0.5 * distanceScore) + (0.3 * tagsScore) + (0.2 * fScore)
+
 			user["match_score"] = matchScore
 			user["common_tags"] = commonCount
 

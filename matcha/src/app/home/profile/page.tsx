@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import StatsInformation from "../../../components/profile/StatsInformation";
 import GeneralInformations from "../../../components/profile/GeneralInformations";
 import BlockedUsersModal from "../../../components/profile/BlockedUsersModal";
@@ -15,6 +16,7 @@ type BlockedUser = {
 };
 
 export default function Profile() {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"info" | "stats">("info");
   const { currentUser, loading } = useCurrentUser();
@@ -228,6 +230,7 @@ export default function Profile() {
               ) : (
                 <StatsInformation
                   userId={currentUser?.id ? String(currentUser.id) : undefined}
+                  onSeeProfile={(profile) => router.push(`/home/profile/${profile.id}`)}
                 />
               )}
             </div>

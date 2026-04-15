@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import api from "@/services/api";
+import api, { getImageUrl } from "@/services/api";
 
 export default function ChatListPage() {
   const [conversations, setConversations] = useState<any[]>([]);
@@ -39,7 +39,9 @@ export default function ChatListPage() {
                 <div className="avatar">
                   <div className="w-16 rounded-full">
                     <img
-                      src={user.avatar_url || "/default-avatar.png"}
+                      src={
+                        getImageUrl(user.avatar_url) || "/default-avatar.png"
+                      }
                       alt={user.first_name}
                     />
                   </div>

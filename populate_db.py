@@ -9,6 +9,8 @@ import random
 from faker import Faker
 from datetime import datetime, timedelta
 import bcrypt
+import unicodedata
+import re
 
 # Database configuration
 DB_CONFIG = {
@@ -86,7 +88,14 @@ def create_user(index):
         first_name = fake.first_name_female()
     
     last_name = fake.last_name()
-    username = f"{first_name.lower()}{last_name.lower()}{index}".replace(" ", "").replace("'", "")
+    
+    raw_username = f"{first_name.lower()}{last_name.lower()}{index}"
+    nfkd_form = unicodedata.normalize('NFKD', raw_username)
+    username = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    username = re.sub(r'[^a-zA-Z0-9-]', '', username)
+    if not username[0].isalpha():
+        username = 'u' + username
+        
     email = f"{username}@matcha-test.com"
     
     # Password hash (password is "Password123!")

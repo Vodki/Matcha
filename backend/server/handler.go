@@ -30,6 +30,31 @@ func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	return earthRadiusKm * c
 }
 
+func calculateMatchScore(currentUserLat, currentUserLon, targetLat, targetLon float64, currentUserTags, targetTags []string, fameRating float64) float64 {
+	distance := haversineDistance(currentUserLat, currentUserLon, targetLat, targetLon)
+	distanceScore := math.Max(0.0, 100.0-(distance*0.2))
+	commonCount := 0
+	seenTags := make(map[string]bool)
+	for _, tag := range currentUserTags {
+		seenTags[tag] = true
+	}
+	for _, tag := range targetTags {
+		if seenTags[tag] {
+			commonCount++
+		}
+	}
+	totalTags := len(currentUserTags) + len(targetTags) - commonCount
+	tagsScore := 0.0
+	if totalTags > 0 {
+		tagsScore = (float64(commonCount) / float64(totalTags)) * 100.0
+	}
+
+	fScore := fameRating
+
+	return (0.5 * distanceScore) + (0.3 * tagsScore) + (0.2 * fScore)
+}
+
+
 const maxUserTags = 20
 
 var tagNameRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,29}$`)
@@ -1100,17 +1125,17 @@ func GetCurrentUserHandler(db *sql.DB) gin.HandlerFunc {
 		var userID int
 		var username, email, firstName, lastName string
 		var gender, orientation, bio, avatarURL sql.NullString
-		var birthday sql.NullTime
+		var birthday, lastSeen sql.NullTime
 		var fameRating sql.NullFloat64
 
 		err = db.QueryRow(`
 			SELECT id, username, email, first_name, last_name, gender, orientation, 
-			       birthday, bio, avatar_url, fame_rating
+			       birthday, bio, avatar_url, fame_rating, last_seen
 			FROM users 
 			WHERE session_token = $1
 		`, sessionToken).Scan(
 			&userID, &username, &email, &firstName, &lastName,
-			&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating,
+			&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating, &lastSeen,
 		)
 
 		if err != nil {
@@ -1129,6 +1154,10 @@ func GetCurrentUserHandler(db *sql.DB) gin.HandlerFunc {
 			"email":      email,
 			"first_name": firstName,
 			"last_name":  lastName,
+			"is_online":  true,
+		}
+		if lastSeen.Valid {
+			response["last_seen"] = lastSeen.Time.Format(time.RFC3339)
 		}
 
 		if gender.Valid {
@@ -1192,7 +1221,7 @@ func GetAllUsersHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rows, err := db.Query(`
 			SELECT id, username, first_name, last_name, email, gender, orientation, 
-			       birthday, bio, avatar_url, fame_rating
+			       birthday, bio, avatar_url, fame_rating, last_seen
 			FROM users
 			WHERE verified = true
 		`)
@@ -1208,12 +1237,12 @@ func GetAllUsersHandler(db *sql.DB) gin.HandlerFunc {
 			var userID int
 			var username, email, firstName, lastName string
 			var gender, orientation, bio, avatarURL sql.NullString
-			var birthday sql.NullTime
+			var birthday, lastSeen sql.NullTime
 			var fameRating sql.NullFloat64
 
 			err := rows.Scan(
 				&userID, &username, &firstName, &lastName, &email,
-				&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating,
+				&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating, &lastSeen,
 			)
 			if err != nil {
 				log.Printf("Error scanning user: %v", err)
@@ -1297,17 +1326,17 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 
 		var username, email, firstName, lastName string
 		var gender, orientation, bio, avatarURL sql.NullString
-		var birthday sql.NullTime
+		var birthday, lastSeen sql.NullTime
 		var fameRating sql.NullFloat64
 
 		err = db.QueryRow(`
 			SELECT username, email, first_name, last_name, gender, orientation, 
-			       birthday, bio, avatar_url, fame_rating
+			       birthday, bio, avatar_url, fame_rating, last_seen
 			FROM users
 			WHERE id = $1 AND verified = true
 		`, userID).Scan(
 			&username, &email, &firstName, &lastName,
-			&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating,
+			&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating, &lastSeen,
 		)
 
 		if err == sql.ErrNoRows {
@@ -1325,6 +1354,13 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 			"email":      email,
 			"first_name": firstName,
 			"last_name":  lastName,
+			"is_online":  IsUserOnline(userID),
+		}
+		if lastSeen.Valid {
+			user["last_seen"] = lastSeen.Time.Format(time.RFC3339)
+			if nextIsOnline, ok := user["is_online"].(bool); ok && !nextIsOnline {
+				user["is_online"] = time.Since(lastSeen.Time) < 5*time.Minute
+			}
 		}
 
 		if gender.Valid {
@@ -1376,6 +1412,40 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 		if err == nil && lat.Valid && lon.Valid {
 			user["latitude"] = lat.Float64
 			user["longitude"] = lon.Float64
+
+			currentUserIDVal, exists := c.Get("userID")
+			if exists {
+				currentUserID := currentUserIDVal.(int)
+				if currentUserID != userID {
+					var currentLat, currentLon sql.NullFloat64
+					err := db.QueryRow("SELECT lat, lon FROM user_locations WHERE user_id = $1", currentUserID).Scan(&currentLat, &currentLon)
+
+					currentUserTags := []string{}
+					tagRows, err := db.Query(`
+						SELECT t.name FROM tags t 
+						JOIN user_tags ut ON t.id = ut.tag_id 
+						WHERE ut.user_id = $1
+					`, currentUserID)
+					if err == nil {
+						defer tagRows.Close()
+						for tagRows.Next() {
+							var tagName string
+							if err := tagRows.Scan(&tagName); err == nil {
+								currentUserTags = append(currentUserTags, tagName)
+							}
+						}
+					}
+
+					if currentLat.Valid && currentLon.Valid {
+						user["match_score"] = calculateMatchScore(
+							currentLat.Float64, currentLon.Float64,
+							lat.Float64, lon.Float64,
+							currentUserTags, tags,
+							user["fame_rating"].(float64),
+						)
+					}
+				}
+			}
 		}
 
 		imageRows, err := db.Query(`
@@ -1811,15 +1881,11 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				}
 			}
 
-			currentYear := time.Now().Year()
-			maxBirthYear := currentYear - minAge
-			minBirthYear := currentYear - maxAge
-
-			args = append(args, minBirthYear, maxBirthYear)
-			minYearPlaceholder := "$" + strconv.Itoa(len(args)-1)
-			maxYearPlaceholder := "$" + strconv.Itoa(len(args))
+			args = append(args, minAge, maxAge)
+			minAgePlaceholder := "$" + strconv.Itoa(len(args)-1)
+			maxAgePlaceholder := "$" + strconv.Itoa(len(args))
 			additionalFilters = append(additionalFilters,
-				"EXTRACT(YEAR FROM u.birthday) BETWEEN "+minYearPlaceholder+" AND "+maxYearPlaceholder)
+				"EXTRACT(YEAR FROM AGE(NOW(), u.birthday)) BETWEEN "+minAgePlaceholder+" AND "+maxAgePlaceholder)
 		}
 
 		if minFameStr != "" {
@@ -1904,6 +1970,13 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				"email":      email,
 				"first_name": firstName,
 				"last_name":  lastName,
+				"is_online":  IsUserOnline(userID),
+			}
+			if lastSeen.Valid {
+				user["last_seen"] = lastSeen.Time.Format(time.RFC3339)
+				if val, ok := user["is_online"].(bool); ok && !val {
+					user["is_online"] = time.Since(lastSeen.Time) < 5*time.Minute
+				}
 			}
 
 			if gender.Valid {
@@ -1927,13 +2000,13 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				user["fame_rating"] = 0.0
 			}
 
-			isOnline := false
+			user["is_online"] = IsUserOnline(userID)
 			if lastSeen.Valid {
-				timeSinceLastSeen := time.Since(lastSeen.Time)
-				isOnline = timeSinceLastSeen < 5*time.Minute
 				user["last_seen"] = lastSeen.Time.Format(time.RFC3339)
+				if !user["is_online"].(bool) {
+					user["is_online"] = time.Since(lastSeen.Time) < 5*time.Minute
+				}
 			}
-			user["is_online"] = isOnline
 
 			tags := []string{}
 			tagRows, err := db.Query(`
@@ -1987,28 +2060,20 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				}
 			}
 
-			totalTags := len(currentUserTags) + len(tags) - commonCount
-			tagsScore := 0.0
-			if totalTags > 0 {
-				tagsScore = (float64(commonCount) / float64(totalTags)) * 100.0
-			}
-
-			distanceScore := 0.0
-			if user["distance_km"] != nil {
-				if d, ok := user["distance_km"].(float64); ok && d >= 0 {
-					// Maximum distance score is 100 at 0km.
-					// Drops to 0 at 500km distance (e.g. 0.2 penalty per km).
-					distanceScore = math.Max(0.0, 100.0-(d*0.2))
-				}
-			}
-
 			fScore := 0.0
 			if fameRating.Valid {
 				fScore = fameRating.Float64
 			}
 
-			// Compatibility score: 50% distance, 30% tags, 20% fame
-			matchScore := (0.5 * distanceScore) + (0.3 * tagsScore) + (0.2 * fScore)
+			matchScore := 0.0
+			if lat.Valid && lon.Valid && currentUserLat.Valid && currentUserLon.Valid {
+				matchScore = calculateMatchScore(
+					currentUserLat.Float64, currentUserLon.Float64,
+					lat.Float64, lon.Float64,
+					currentUserTags, tags,
+					fScore,
+				)
+			}
 
 			user["match_score"] = matchScore
 			user["common_tags"] = commonCount

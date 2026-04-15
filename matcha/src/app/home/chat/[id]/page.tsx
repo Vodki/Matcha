@@ -3,10 +3,11 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
-import api from "@/services/api";
+import api, { getImageUrl } from "@/services/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useGlobalAppContext } from "@/contexts/GlobalAppContext";
 import { websocketService } from "@/services/websocket";
+import { backendUserToProfile } from "@/types/profile";
 
 interface Message {
   id: number;
@@ -52,13 +53,13 @@ export default function ChatPage() {
     const loadData = async () => {
       try {
         const cachedPartner = state.users.find((u) => u.id === chatPartnerId);
-        if (cachedPartner) {
-          if (isMounted) setPartner(cachedPartner);
-        } else {
-          const userRes = await api.getUserById(chatPartnerId);
-          if (userRes.data && isMounted) {
-            setPartner(userRes.data);
-          }
+        if (cachedPartner && isMounted) {
+          setPartner(cachedPartner);
+        }
+
+        const userRes = await api.getUserById(chatPartnerId);
+        if (userRes.data && isMounted) {
+          setPartner(backendUserToProfile(userRes.data));
         }
 
         await fetchMessages();
@@ -94,7 +95,26 @@ export default function ChatPage() {
       }
     });
 
-    unsubscribeRef.current = [unsubConnection, unsubChat];
+    const unsubOnline = websocketService.on("user_online", (data: any) => {
+      if (data.user_id === chatPartnerIdNum) {
+        setPartner((prev: any) => (prev ? { ...prev, isOnline: true } : prev));
+      }
+    });
+
+    const unsubOffline = websocketService.on("user_offline", (data: any) => {
+      if (data.user_id === chatPartnerIdNum) {
+        setPartner((prev: any) =>
+          prev ? { ...prev, isOnline: false, lastSeen: new Date() } : prev,
+        );
+      }
+    });
+
+    unsubscribeRef.current = [
+      unsubConnection,
+      unsubChat,
+      unsubOnline,
+      unsubOffline,
+    ];
 
     const interval = setInterval(() => {
       if (!websocketService.isConnected()) {
@@ -151,19 +171,19 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-base-200">
-      <header className="fixed top-16 left-0 right-0 z-40 flex items-center gap-4 p-3 bg-base-100 shadow-md border-b">
+    <div className="flex flex-col h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] bg-base-200 overflow-hidden relative">
+      <header className="fixed top-16 left-0 right-0 z-40 flex items-center gap-4 p-3 bg-base-100/80 backdrop-blur-md shadow-sm border-b border-base-300 px-4">
         <button
           onClick={() => router.back()}
-          className="btn btn-ghost btn-circle"
+          className="btn btn-ghost btn-circle btn-sm"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
-            strokeWidth={1.5}
+            strokeWidth={2}
             stroke="currentColor"
-            className="w-6 h-6"
+            className="w-5 h-5"
           >
             <path
               strokeLinecap="round"
@@ -173,80 +193,110 @@ export default function ChatPage() {
           </svg>
         </button>
         <div className="avatar">
-          <div className="w-12 rounded-full">
+          <div className="w-10 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
             <img
               src={
-                partner.avatar_url ||
-                partner.images?.[0] ||
+                getImageUrl(partner.avatar_url || partner.images?.[0]) ||
                 "/default-avatar.png"
               }
               alt={`Profile picture of ${partner.first_name || partner.firstName}`}
             />
           </div>
         </div>
-        <div className="flex-1">
-          <h2 className="font-bold text-lg">
+        <div className="flex-1 min-w-0">
+          <h2 className="font-bold text-sm sm:text-base truncate">
             {partner.first_name || partner.firstName}{" "}
             {partner.last_name || partner.lastName}
           </h2>
-          {wsConnected && (
-            <span className="text-xs text-green-500">● Connected</span>
+          {partner?.isOnline ? (
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-success rounded-full animate-pulse"></span>
+              <span className="text-[10px] sm:text-xs opacity-60">Online</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 opacity-50 italic">
+              <span className="w-2 h-2 bg-base-300 rounded-full"></span>
+              <span className="text-[10px] sm:text-xs">
+                {partner?.last_seen || partner?.lastSeen
+                  ? `Last seen ${new Date(partner?.last_seen || partner?.lastSeen).toLocaleDateString()}`
+                  : "Offline"}
+              </span>
+            </div>
           )}
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 pt-32 pb-24">
-        {messages.map((message) => {
-          const isMyMessage =
-            message.sender_id === parseInt(currentUserId || "0");
-          const senderName = isMyMessage
-            ? "Me"
-            : partner.first_name || partner.firstName;
+      <main className="flex-1 overflow-y-auto p-4 pt-20 pb-20 lg:pb-8">
+        <div className="max-w-4xl mx-auto space-y-4">
+          {messages.map((message, index) => {
+            const isMyMessage =
+              message.sender_id === parseInt(currentUserId || "0");
 
-          const timestamp = new Date(message.created_at);
-          const formattedTimestamp = new Intl.DateTimeFormat("fr-FR", {
-            dateStyle: "short",
-            timeStyle: "short",
-          }).format(timestamp);
+            const timestamp = new Date(message.created_at);
+            const formattedTime = timestamp.toLocaleTimeString("fr-FR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
 
-          return (
-            <div
-              key={message.id}
-              className={`chat ${isMyMessage ? "chat-end" : "chat-start"}`}
-            >
-              <div className="chat-header text-xs opacity-70 mb-1">
-                {senderName}
-              </div>
+            const showHeader =
+              index === 0 ||
+              messages[index - 1].sender_id !== message.sender_id;
+
+            return (
               <div
-                className={`chat-bubble ${
-                  isMyMessage ? "chat-bubble-primary" : ""
-                }`}
+                key={message.id}
+                className={`chat ${isMyMessage ? "chat-end" : "chat-start"} animate-fade-in`}
               >
-                {message.content}
+                {showHeader && (
+                  <div className="chat-header text-[10px] opacity-40 mb-1 px-1">
+                    {isMyMessage
+                      ? "You"
+                      : partner.first_name || partner.firstName}
+                  </div>
+                )}
+                <div
+                  className={`chat-bubble shadow-sm text-sm sm:text-base py-2.5 px-4 rounded-2xl ${
+                    isMyMessage
+                      ? "chat-bubble-primary rounded-tr-none bg-gradient-to-br from-primary to-primary/90"
+                      : "bg-base-100 border border-base-300 rounded-tl-none text-base-content"
+                  }`}
+                >
+                  {message.content}
+                </div>
+                <div className="chat-footer opacity-30 text-[9px] mt-1 px-1">
+                  {formattedTime}
+                </div>
               </div>
-              <div className="chat-footer opacity-50 text-xs mt-1">
-                {formattedTimestamp}
-              </div>
-            </div>
-          );
-        })}
-        <div ref={messagesEndRef} />
+            );
+          })}
+          <div ref={messagesEndRef} className="h-4" />
+        </div>
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 p-4 pb-20 bg-base-100/95 backdrop-blur-md border-t z-40">
+      <footer className="fixed bottom-0 lg:bottom-4 left-0 right-0 p-3 pb-20 lg:pb-3 bg-base-100/90 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border-t lg:border-t-0 z-40 transition-all">
         <form
           onSubmit={handleSendMessage}
-          className="flex items-center gap-2 max-w-4xl mx-auto"
+          className="flex items-center gap-2 max-w-4xl mx-auto lg:bg-base-100 lg:p-2 lg:rounded-full lg:shadow-xl lg:border lg:border-base-300"
         >
           <input
             type="text"
             placeholder="Type your message..."
-            className="input input-bordered flex-1"
+            className="input input-ghost focus:bg-base-200 flex-1 rounded-full px-4 lg:bg-transparent"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
           />
-          <button type="submit" className="btn btn-primary">
-            Send
+          <button
+            type="submit"
+            className="btn btn-primary btn-circle btn-sm sm:btn-md shadow-lg btn-glow"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="w-4 h-4 sm:w-5 sm:h-5"
+            >
+              <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+            </svg>
           </button>
         </form>
       </footer>

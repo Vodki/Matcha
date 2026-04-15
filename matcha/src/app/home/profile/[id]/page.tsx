@@ -54,7 +54,7 @@ function scoreCandidate(
   candidate: Profile,
   opts?: { distanceCutoffKm?: number },
 ) {
-  const cutoff = opts?.distanceCutoffKm ?? 200;
+  const cutoff = opts?.distanceCutoffKm ?? 500;
   const fame = (candidate.fameRating ?? 0) / 100;
 
   let distanceKm = Infinity;
@@ -70,13 +70,9 @@ function scoreCandidate(
     distanceKm === Infinity ? 0 : Math.max(0, 1 - distanceKm / cutoff);
 
   const common = countCommonTags(viewer.interests, candidate.interests);
-  const denom = Math.max(
-    1,
-    new Set([
-      ...viewer.interests.map(normalizeTag),
-      ...candidate.interests.map(normalizeTag),
-    ]).size,
-  );
+  const A = asSetNormalized(viewer.interests);
+  const B = asSetNormalized(candidate.interests);
+  const denom = Math.max(1, new Set([...Array.from(A), ...Array.from(B)]).size);
   const tagsScore = common / denom;
 
   const base = 0.5 * distanceScore + 0.3 * tagsScore + 0.2 * fame;
@@ -118,6 +114,9 @@ export default function UserProfilePage() {
 
   const matchScore = useMemo(() => {
     if (!profile || !currentUser) return 0;
+    if (profile.matchScore !== undefined) {
+      return Math.round(profile.matchScore);
+    }
     const { score } = scoreCandidate(currentUser, profile);
     return Math.round(score * 100);
   }, [profile, currentUser]);

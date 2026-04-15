@@ -32,6 +32,7 @@ type Hub struct {
 	unregister chan *Client
 	broadcast  chan BroadcastMessage
 	mutex      sync.RWMutex
+	db         *sql.DB
 }
 
 type BroadcastMessage struct {
@@ -62,6 +63,15 @@ func (h *Hub) Run() {
 			if _, ok := h.clients[client.UserID]; ok {
 				delete(h.clients, client.UserID)
 				close(client.Send)
+				
+				if h.db != nil {
+					go func(uid int) {
+						_, err := h.db.Exec("UPDATE users SET last_seen = NOW() WHERE id = $1", uid)
+						if err != nil {
+							log.Printf("Error updating last_seen for user %d: %v", uid, err)
+						}
+					}(client.UserID)
+				}
 			}
 			h.mutex.Unlock()
 			log.Printf("WebSocket: User %d disconnected", client.UserID)
@@ -115,6 +125,13 @@ func (h *Hub) broadcastOnlineStatus(userID int, isOnline bool) {
 
 func SendToUser(userID int, message []byte) {
 	hub.broadcast <- BroadcastMessage{UserID: userID, Message: message}
+}
+
+func IsUserOnline(userID int) bool {
+	hub.mutex.RLock()
+	defer hub.mutex.RUnlock()
+	_, online := hub.clients[userID]
+	return online
 }
 
 func WebSocketHandler(db *sql.DB) gin.HandlerFunc {
@@ -217,6 +234,7 @@ func (c *Client) writePump() {
 	}
 }
 
-func StartHub() {
+func StartHub(db *sql.DB) {
+	hub.db = db
 	go hub.Run()
 }

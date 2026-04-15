@@ -6,11 +6,13 @@ import (
 	"log"
 	"matcha/utils"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 )
 
 func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
@@ -28,6 +30,53 @@ func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	return earthRadiusKm * c
 }
 
+func calculateMatchScore(currentUserLat, currentUserLon, targetLat, targetLon float64, currentUserTags, targetTags []string, fameRating float64) float64 {
+	distance := haversineDistance(currentUserLat, currentUserLon, targetLat, targetLon)
+	distanceScore := math.Max(0.0, 100.0-(distance*0.2))
+	commonCount := 0
+	seenTags := make(map[string]bool)
+	for _, tag := range currentUserTags {
+		seenTags[tag] = true
+	}
+	for _, tag := range targetTags {
+		if seenTags[tag] {
+			commonCount++
+		}
+	}
+	totalTags := len(currentUserTags) + len(targetTags) - commonCount
+	tagsScore := 0.0
+	if totalTags > 0 {
+		tagsScore = (float64(commonCount) / float64(totalTags)) * 100.0
+	}
+
+	fScore := fameRating
+
+	return (0.5 * distanceScore) + (0.3 * tagsScore) + (0.2 * fScore)
+}
+
+
+const maxUserTags = 20
+
+var tagNameRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,29}$`)
+
+func normalizeTagName(raw string) (string, error) {
+	tag := strings.TrimSpace(raw)
+	tag = strings.TrimPrefix(tag, "#")
+	tag = strings.ToLower(tag)
+
+	if tag == "" {
+		return "", fmt.Errorf("tag name is required")
+	}
+	if len(tag) > 30 {
+		return "", fmt.Errorf("tag name must be at most 30 characters")
+	}
+	if !tagNameRegex.MatchString(tag) {
+		return "", fmt.Errorf("tag can only contain lowercase letters, numbers, underscores, and hyphens")
+	}
+
+	return tag, nil
+}
+
 func RegisterHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username := c.PostForm("username")
@@ -36,6 +85,27 @@ func RegisterHandler(db *sql.DB) gin.HandlerFunc {
 		lastName := c.PostForm("last_name")
 		firstName := c.PostForm("first_name")
 		birthday := c.PostForm("birthday")
+
+		if err := utils.ValidateUsername(username); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		if err := utils.ValidateEmail(email); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		if err := utils.ValidateName(firstName); err != nil {
+			c.JSON(400, gin.H{"error": "First Name: " + err.Error()})
+			return
+		}
+		if err := utils.ValidateName(lastName); err != nil {
+			c.JSON(400, gin.H{"error": "Last Name: " + err.Error()})
+			return
+		}
+		if err := utils.ValidateBirthdate(birthday); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
 
 		var exists bool
 		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1 OR email = $2)", username, email).Scan(&exists)
@@ -182,15 +252,27 @@ func PostTagHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		tagName := c.Query("tag")
-		if tagName == "" {
-			c.JSON(400, gin.H{"error": "Tag name is required"})
+		normalizedTagName, tagErr := normalizeTagName(tagName)
+		if tagErr != nil {
+			c.JSON(400, gin.H{"error": tagErr.Error()})
+			return
+		}
+
+		var userTagCount int
+		err := db.QueryRow("SELECT COUNT(*) FROM user_tags WHERE user_id = $1", userID).Scan(&userTagCount)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Database error", "details": err.Error()})
+			return
+		}
+		if userTagCount >= maxUserTags {
+			c.JSON(400, gin.H{"error": "Maximum 20 tags allowed"})
 			return
 		}
 
 		var tagID int
-		err := db.QueryRow("SELECT id FROM tags WHERE name = $1", tagName).Scan(&tagID)
+		err = db.QueryRow("SELECT id FROM tags WHERE name = $1", normalizedTagName).Scan(&tagID)
 		if err == sql.ErrNoRows {
-			err = db.QueryRow("INSERT INTO tags (name) VALUES ($1) RETURNING id", tagName).Scan(&tagID)
+			err = db.QueryRow("INSERT INTO tags (name) VALUES ($1) RETURNING id", normalizedTagName).Scan(&tagID)
 			if err != nil {
 				c.JSON(500, gin.H{"error": "Error creating tag", "details": err.Error()})
 				return
@@ -268,13 +350,14 @@ func DeleteTagHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		tagName := c.Query("tag")
-		if tagName == "" {
-			c.JSON(400, gin.H{"error": "Tag name is required"})
+		normalizedTagName, tagErr := normalizeTagName(tagName)
+		if tagErr != nil {
+			c.JSON(400, gin.H{"error": tagErr.Error()})
 			return
 		}
 
 		var tagID int
-		err := db.QueryRow("SELECT id FROM tags WHERE name = $1", tagName).Scan(&tagID)
+		err := db.QueryRow("SELECT id FROM tags WHERE name = $1", normalizedTagName).Scan(&tagID)
 		if err == sql.ErrNoRows {
 			c.JSON(404, gin.H{"error": "Tag not found"})
 			return
@@ -493,10 +576,15 @@ func GetNearbyUsersHandler(db *sql.DB) gin.HandlerFunc {
 
 func RequestPasswordResetHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		email := c.PostForm("email")
+		email := strings.TrimSpace(c.PostForm("email"))
 
 		if email == "" {
 			c.JSON(400, gin.H{"error": "Email is required"})
+			return
+		}
+
+		if err := utils.ValidateEmail(email); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -1037,17 +1125,17 @@ func GetCurrentUserHandler(db *sql.DB) gin.HandlerFunc {
 		var userID int
 		var username, email, firstName, lastName string
 		var gender, orientation, bio, avatarURL sql.NullString
-		var birthday sql.NullTime
+		var birthday, lastSeen sql.NullTime
 		var fameRating sql.NullFloat64
 
 		err = db.QueryRow(`
 			SELECT id, username, email, first_name, last_name, gender, orientation, 
-			       birthday, bio, avatar_url, fame_rating
+			       birthday, bio, avatar_url, fame_rating, last_seen
 			FROM users 
 			WHERE session_token = $1
 		`, sessionToken).Scan(
 			&userID, &username, &email, &firstName, &lastName,
-			&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating,
+			&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating, &lastSeen,
 		)
 
 		if err != nil {
@@ -1066,6 +1154,10 @@ func GetCurrentUserHandler(db *sql.DB) gin.HandlerFunc {
 			"email":      email,
 			"first_name": firstName,
 			"last_name":  lastName,
+			"is_online":  true,
+		}
+		if lastSeen.Valid {
+			response["last_seen"] = lastSeen.Time.Format(time.RFC3339)
 		}
 
 		if gender.Valid {
@@ -1129,7 +1221,7 @@ func GetAllUsersHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rows, err := db.Query(`
 			SELECT id, username, first_name, last_name, email, gender, orientation, 
-			       birthday, bio, avatar_url, fame_rating
+			       birthday, bio, avatar_url, fame_rating, last_seen
 			FROM users
 			WHERE verified = true
 		`)
@@ -1145,12 +1237,12 @@ func GetAllUsersHandler(db *sql.DB) gin.HandlerFunc {
 			var userID int
 			var username, email, firstName, lastName string
 			var gender, orientation, bio, avatarURL sql.NullString
-			var birthday sql.NullTime
+			var birthday, lastSeen sql.NullTime
 			var fameRating sql.NullFloat64
 
 			err := rows.Scan(
 				&userID, &username, &firstName, &lastName, &email,
-				&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating,
+				&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating, &lastSeen,
 			)
 			if err != nil {
 				log.Printf("Error scanning user: %v", err)
@@ -1234,17 +1326,17 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 
 		var username, email, firstName, lastName string
 		var gender, orientation, bio, avatarURL sql.NullString
-		var birthday sql.NullTime
+		var birthday, lastSeen sql.NullTime
 		var fameRating sql.NullFloat64
 
 		err = db.QueryRow(`
 			SELECT username, email, first_name, last_name, gender, orientation, 
-			       birthday, bio, avatar_url, fame_rating
+			       birthday, bio, avatar_url, fame_rating, last_seen
 			FROM users
 			WHERE id = $1 AND verified = true
 		`, userID).Scan(
 			&username, &email, &firstName, &lastName,
-			&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating,
+			&gender, &orientation, &birthday, &bio, &avatarURL, &fameRating, &lastSeen,
 		)
 
 		if err == sql.ErrNoRows {
@@ -1262,6 +1354,13 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 			"email":      email,
 			"first_name": firstName,
 			"last_name":  lastName,
+			"is_online":  IsUserOnline(userID),
+		}
+		if lastSeen.Valid {
+			user["last_seen"] = lastSeen.Time.Format(time.RFC3339)
+			if nextIsOnline, ok := user["is_online"].(bool); ok && !nextIsOnline {
+				user["is_online"] = time.Since(lastSeen.Time) < 5*time.Minute
+			}
 		}
 
 		if gender.Valid {
@@ -1313,6 +1412,40 @@ func GetUserByIdHandler(db *sql.DB) gin.HandlerFunc {
 		if err == nil && lat.Valid && lon.Valid {
 			user["latitude"] = lat.Float64
 			user["longitude"] = lon.Float64
+
+			currentUserIDVal, exists := c.Get("userID")
+			if exists {
+				currentUserID := currentUserIDVal.(int)
+				if currentUserID != userID {
+					var currentLat, currentLon sql.NullFloat64
+					err := db.QueryRow("SELECT lat, lon FROM user_locations WHERE user_id = $1", currentUserID).Scan(&currentLat, &currentLon)
+
+					currentUserTags := []string{}
+					tagRows, err := db.Query(`
+						SELECT t.name FROM tags t 
+						JOIN user_tags ut ON t.id = ut.tag_id 
+						WHERE ut.user_id = $1
+					`, currentUserID)
+					if err == nil {
+						defer tagRows.Close()
+						for tagRows.Next() {
+							var tagName string
+							if err := tagRows.Scan(&tagName); err == nil {
+								currentUserTags = append(currentUserTags, tagName)
+							}
+						}
+					}
+
+					if currentLat.Valid && currentLon.Valid {
+						user["match_score"] = calculateMatchScore(
+							currentLat.Float64, currentLon.Float64,
+							lat.Float64, lon.Float64,
+							currentUserTags, tags,
+							user["fame_rating"].(float64),
+						)
+					}
+				}
+			}
 		}
 
 		imageRows, err := db.Query(`
@@ -1367,55 +1500,75 @@ func UpdateProfileHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		updates := []string{}
-		args := []interface{}{}
-		argIndex := 1
-
 		if requestData.Gender != nil {
-			updates = append(updates, "gender = $"+strconv.Itoa(argIndex))
-			args = append(args, *requestData.Gender)
-			argIndex++
+			trimmedGender := strings.TrimSpace(*requestData.Gender)
+			if trimmedGender != "Man" && trimmedGender != "Woman" {
+				c.JSON(400, gin.H{"error": "Gender must be either Man or Woman"})
+				return
+			}
+			requestData.Gender = &trimmedGender
 		}
+
 		if requestData.Orientation != nil {
-			updates = append(updates, "orientation = $"+strconv.Itoa(argIndex))
-			args = append(args, *requestData.Orientation)
-			argIndex++
+			trimmedOrientation := strings.TrimSpace(*requestData.Orientation)
+			if trimmedOrientation != "likes men" && trimmedOrientation != "likes women" && trimmedOrientation != "likes men and women" {
+				c.JSON(400, gin.H{"error": "Orientation must be one of: likes men, likes women, likes men and women"})
+				return
+			}
+			requestData.Orientation = &trimmedOrientation
 		}
+
 		if requestData.Bio != nil {
-			updates = append(updates, "bio = $"+strconv.Itoa(argIndex))
-			args = append(args, *requestData.Bio)
-			argIndex++
+			trimmedBio := strings.TrimSpace(*requestData.Bio)
+			if len(trimmedBio) > 500 {
+				c.JSON(400, gin.H{"error": "Bio must be 500 characters or less"})
+				return
+			}
+			requestData.Bio = &trimmedBio
 		}
+
 		if requestData.FirstName != nil {
-			updates = append(updates, "first_name = $"+strconv.Itoa(argIndex))
-			args = append(args, *requestData.FirstName)
-			argIndex++
+			trimmedFirstName := strings.TrimSpace(*requestData.FirstName)
+			requestData.FirstName = &trimmedFirstName
+			if err := utils.ValidateName(*requestData.FirstName); err != nil {
+				c.JSON(400, gin.H{"error": "First Name: " + err.Error()})
+				return
+			}
 		}
 		if requestData.LastName != nil {
-			updates = append(updates, "last_name = $"+strconv.Itoa(argIndex))
-			args = append(args, *requestData.LastName)
-			argIndex++
+			trimmedLastName := strings.TrimSpace(*requestData.LastName)
+			requestData.LastName = &trimmedLastName
+			if err := utils.ValidateName(*requestData.LastName); err != nil {
+				c.JSON(400, gin.H{"error": "Last Name: " + err.Error()})
+				return
+			}
 		}
 		if requestData.Birthday != nil {
-			updates = append(updates, "birthday = $"+strconv.Itoa(argIndex))
-			args = append(args, *requestData.Birthday)
-			argIndex++
+			trimmedBirthday := strings.TrimSpace(*requestData.Birthday)
+			requestData.Birthday = &trimmedBirthday
+			if err := utils.ValidateBirthdate(*requestData.Birthday); err != nil {
+				c.JSON(400, gin.H{"error": "Birthday: " + err.Error()})
+				return
+			}
 		}
 
-		if len(updates) == 0 {
+		if requestData.Gender == nil && requestData.Orientation == nil && requestData.Bio == nil &&
+			requestData.FirstName == nil && requestData.LastName == nil && requestData.Birthday == nil {
 			c.JSON(400, gin.H{"error": "No fields to update"})
 			return
 		}
 
-		args = append(args, userID)
-
-		query := "UPDATE users SET " + updates[0]
-		for i := 1; i < len(updates); i++ {
-			query += ", " + updates[i]
-		}
-		query += " WHERE id = $" + strconv.Itoa(argIndex)
-
-		_, err := db.Exec(query, args...)
+		_, err := db.Exec(`
+			UPDATE users
+			SET
+				gender = COALESCE($1, gender),
+				orientation = COALESCE($2, orientation),
+				bio = COALESCE($3, bio),
+				first_name = COALESCE($4, first_name),
+				last_name = COALESCE($5, last_name),
+				birthday = COALESCE($6, birthday)
+			WHERE id = $7
+		`, requestData.Gender, requestData.Orientation, requestData.Bio, requestData.FirstName, requestData.LastName, requestData.Birthday, userID)
 		if err != nil {
 			log.Printf("Error updating profile: %v", err)
 			c.JSON(500, gin.H{"error": "Error updating profile"})
@@ -1448,8 +1601,15 @@ func UpdateEmailHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		requestData.Email = strings.TrimSpace(requestData.Email)
+
 		if requestData.Email == "" {
 			c.JSON(400, gin.H{"error": "Email is required"})
+			return
+		}
+
+		if err := utils.ValidateEmail(requestData.Email); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -1497,6 +1657,27 @@ func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		normalizedUniqueTags := make([]string, 0, len(requestData.Tags))
+		seenTags := make(map[string]struct{}, len(requestData.Tags))
+
+		for _, rawTag := range requestData.Tags {
+			normalizedTag, tagErr := normalizeTagName(rawTag)
+			if tagErr != nil {
+				c.JSON(400, gin.H{"error": tagErr.Error()})
+				return
+			}
+			if _, exists := seenTags[normalizedTag]; exists {
+				continue
+			}
+			seenTags[normalizedTag] = struct{}{}
+			normalizedUniqueTags = append(normalizedUniqueTags, normalizedTag)
+		}
+
+		if len(normalizedUniqueTags) > maxUserTags {
+			c.JSON(400, gin.H{"error": "Maximum 20 tags allowed"})
+			return
+		}
+
 		tx, err := db.Begin()
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Error starting transaction"})
@@ -1511,10 +1692,7 @@ func UpdateTagsHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		for _, tagName := range requestData.Tags {
-			if tagName == "" {
-				continue
-			}
+		for _, tagName := range normalizedUniqueTags {
 			var tagID int
 			err := tx.QueryRow("SELECT id FROM tags WHERE name = $1", tagName).Scan(&tagID)
 			if err == sql.ErrNoRows {
@@ -1617,16 +1795,10 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			targetGenders = []string{"Man", "Woman"}
 		}
 
-		placeholders := ""
 		orientationClauses := []string{}
-		args := []interface{}{userID}
+		args := []interface{}{userID, pq.Array(targetGenders)}
 
-		for i, gender := range targetGenders {
-			if i > 0 {
-				placeholders += ","
-			}
-			placeholders += "$" + strconv.Itoa(len(args)+1)
-			args = append(args, gender)
+		for _, gender := range targetGenders {
 
 			if gender == "Man" {
 				if currentUserGender == "Woman" {
@@ -1658,40 +1830,41 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 		var additionalFilters []string
 
 		if tagsStr != "" {
-                        const maxRequiredTags = 10
+			const maxRequiredTags = 10
 
-                        requiredTags := strings.Split(tagsStr, ",")
-                        uniqueRequiredTags := make([]string, 0, len(requiredTags))
-                        seenTags := make(map[string]struct{}, len(requiredTags))
+			requiredTags := strings.Split(tagsStr, ",")
+			uniqueRequiredTags := make([]string, 0, len(requiredTags))
+			seenTags := make(map[string]struct{}, len(requiredTags))
 
-                        for _, tag := range requiredTags {
-                                trimmed := strings.TrimSpace(tag)
-                                if trimmed == "" {
-                                        continue
-                                }
-                                trimmed = strings.ToLower(trimmed)
-                                if _, exists := seenTags[trimmed]; exists {
-                                        continue
-                                }
+			for _, tag := range requiredTags {
+				trimmed := strings.TrimSpace(tag)
+				if trimmed == "" {
+					continue
+				}
+				trimmed = strings.ToLower(trimmed)
+				if _, exists := seenTags[trimmed]; exists {
+					continue
+				}
 
-                                seenTags[trimmed] = struct{}{}
-                                uniqueRequiredTags = append(uniqueRequiredTags, trimmed)
+				seenTags[trimmed] = struct{}{}
+				uniqueRequiredTags = append(uniqueRequiredTags, trimmed)
 
-                                if len(uniqueRequiredTags) > maxRequiredTags {
-                                        c.JSON(400, gin.H{"error": fmt.Sprintf("Too many tags provided; maximum is %d", maxRequiredTags)})
-                                        return
-                                }
-                        }
+				if len(uniqueRequiredTags) > maxRequiredTags {
+					c.JSON(400, gin.H{"error": fmt.Sprintf("Too many tags provided; maximum is %d", maxRequiredTags)})
+					return
+				}
+			}
 
-                        for _, tag := range uniqueRequiredTags {
-                                args = append(args, tag)
-                                additionalFilters = append(additionalFilters, fmt.Sprintf(`EXISTS (
+			for _, tag := range uniqueRequiredTags {
+				args = append(args, tag)
+				placeholder := "$" + strconv.Itoa(len(args))
+				additionalFilters = append(additionalFilters, fmt.Sprintf(`EXISTS (
                                                 SELECT 1 FROM user_tags ut
                                                 JOIN tags t ON ut.tag_id = t.id
-                                                WHERE ut.user_id = u.id AND LOWER(t.name) = $%d
-                                        )`, len(args)))
+																			WHERE ut.user_id = u.id AND LOWER(t.name) = %s
+																		)`, placeholder))
+			}
 		}
-                }
 
 		if minAgeStr != "" || maxAgeStr != "" {
 			minAge := 18
@@ -1708,17 +1881,18 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				}
 			}
 
-			currentYear := time.Now().Year()
-			maxBirthYear := currentYear - minAge
-			minBirthYear := currentYear - maxAge
-
+			args = append(args, minAge, maxAge)
+			minAgePlaceholder := "$" + strconv.Itoa(len(args)-1)
+			maxAgePlaceholder := "$" + strconv.Itoa(len(args))
 			additionalFilters = append(additionalFilters,
-				fmt.Sprintf("EXTRACT(YEAR FROM u.birthday) BETWEEN %d AND %d", minBirthYear, maxBirthYear))
+				"EXTRACT(YEAR FROM AGE(NOW(), u.birthday)) BETWEEN "+minAgePlaceholder+" AND "+maxAgePlaceholder)
 		}
 
 		if minFameStr != "" {
 			if v, err := strconv.ParseFloat(minFameStr, 64); err == nil {
-				additionalFilters = append(additionalFilters, fmt.Sprintf("u.fame_rating >= %.2f", v))
+				args = append(args, v)
+				famePlaceholder := "$" + strconv.Itoa(len(args))
+				additionalFilters = append(additionalFilters, "u.fame_rating >= "+famePlaceholder)
 			}
 		}
 
@@ -1730,13 +1904,17 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				`, userID).Scan(&userLat, &userLon)
 
 				if err == nil && userLat.Valid && userLon.Valid {
-					additionalFilters = append(additionalFilters, fmt.Sprintf(`
+					args = append(args, userLat.Float64, userLon.Float64, maxDist)
+					latPlaceholder := "$" + strconv.Itoa(len(args)-2)
+					lonPlaceholder := "$" + strconv.Itoa(len(args)-1)
+					distancePlaceholder := "$" + strconv.Itoa(len(args))
+					additionalFilters = append(additionalFilters, `
 						(6371 * 2 * ASIN(SQRT(
-							POWER(SIN(RADIANS((u_loc.lat - %f) / 2)), 2) + 
-							COS(RADIANS(%f)) * COS(RADIANS(u_loc.lat)) * 
-							POWER(SIN(RADIANS((u_loc.lon - %f) / 2)), 2)
-						)) <= %f OR u_loc.lat IS NULL)
-					`, userLat.Float64, userLat.Float64, userLon.Float64, maxDist))
+							POWER(SIN(RADIANS((u_loc.lat - `+latPlaceholder+`) / 2)), 2) +
+							COS(RADIANS(`+latPlaceholder+`)) * COS(RADIANS(u_loc.lat)) *
+							POWER(SIN(RADIANS((u_loc.lon - `+lonPlaceholder+`) / 2)), 2)
+						)) <= `+distancePlaceholder+` OR u_loc.lat IS NULL)
+					`)
 				}
 			}
 		}
@@ -1753,7 +1931,7 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 			LEFT JOIN user_locations u_loc ON u.id = u_loc.user_id
 			WHERE u.verified = true 
 			  AND u.id != $1
-			  AND u.gender IN (` + placeholders + `)
+			  AND u.gender = ANY($2)
 			  AND (` + orientationFilter + `)
 			  AND NOT EXISTS (
 			    SELECT 1 FROM blocks
@@ -1792,6 +1970,13 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				"email":      email,
 				"first_name": firstName,
 				"last_name":  lastName,
+				"is_online":  IsUserOnline(userID),
+			}
+			if lastSeen.Valid {
+				user["last_seen"] = lastSeen.Time.Format(time.RFC3339)
+				if val, ok := user["is_online"].(bool); ok && !val {
+					user["is_online"] = time.Since(lastSeen.Time) < 5*time.Minute
+				}
 			}
 
 			if gender.Valid {
@@ -1815,13 +2000,13 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				user["fame_rating"] = 0.0
 			}
 
-			isOnline := false
+			user["is_online"] = IsUserOnline(userID)
 			if lastSeen.Valid {
-				timeSinceLastSeen := time.Since(lastSeen.Time)
-				isOnline = timeSinceLastSeen < 5*time.Minute
 				user["last_seen"] = lastSeen.Time.Format(time.RFC3339)
+				if !user["is_online"].(bool) {
+					user["is_online"] = time.Since(lastSeen.Time) < 5*time.Minute
+				}
 			}
-			user["is_online"] = isOnline
 
 			tags := []string{}
 			tagRows, err := db.Query(`
@@ -1875,28 +2060,20 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				}
 			}
 
-			totalTags := len(currentUserTags) + len(tags) - commonCount
-			tagsScore := 0.0
-			if totalTags > 0 {
-				tagsScore = (float64(commonCount) / float64(totalTags)) * 100.0
-			}
-
-			distanceScore := 0.0
-			if user["distance_km"] != nil {
-				if d, ok := user["distance_km"].(float64); ok && d >= 0 {
-					// Maximum distance score is 100 at 0km.
-					// Drops to 0 at 500km distance (e.g. 0.2 penalty per km).
-					distanceScore = math.Max(0.0, 100.0-(d*0.2))
-				}
-			}
-
 			fScore := 0.0
 			if fameRating.Valid {
 				fScore = fameRating.Float64
 			}
 
-			// Compatibility score: 50% distance, 30% tags, 20% fame
-			matchScore := (0.5 * distanceScore) + (0.3 * tagsScore) + (0.2 * fScore)
+			matchScore := 0.0
+			if lat.Valid && lon.Valid && currentUserLat.Valid && currentUserLon.Valid {
+				matchScore = calculateMatchScore(
+					currentUserLat.Float64, currentUserLon.Float64,
+					lat.Float64, lon.Float64,
+					currentUserTags, tags,
+					fScore,
+				)
+			}
 
 			user["match_score"] = matchScore
 			user["common_tags"] = commonCount

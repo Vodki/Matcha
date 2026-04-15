@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import api, { getImageUrl } from "@/services/api";
+import api, { getImageUrl, validateImageFile } from "@/services/api";
 
 interface Image {
   id: number;
@@ -13,6 +13,7 @@ interface Image {
 export default function ImageManager({ userId }: { userId: string }) {
   const [images, setImages] = useState<Image[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const fetchImages = async () => {
     try {
@@ -32,15 +33,28 @@ export default function ImageManager({ userId }: { userId: string }) {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
     const file = e.target.files[0];
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setErrorMessage(validationError);
+      e.target.value = "";
+      return;
+    }
+
+    setErrorMessage("");
     setUploading(true);
 
     try {
-      await api.uploadImage(file);
+      const result = await api.uploadImage(file);
+      if (result.error) {
+        setErrorMessage(result.error);
+        return;
+      }
       fetchImages();
     } catch (err) {
-      alert("Failed to upload image");
+      setErrorMessage("Failed to upload image");
     } finally {
       setUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -67,6 +81,12 @@ export default function ImageManager({ userId }: { userId: string }) {
   return (
     <div className="card bg-base-100 shadow-xl p-6">
       <h3 className="text-lg font-bold mb-4">Photos ({images.length}/5)</h3>
+
+      {errorMessage && (
+        <div className="alert alert-error mb-4">
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         {images.map((img) => (
@@ -115,7 +135,7 @@ export default function ImageManager({ userId }: { userId: string }) {
           <div className="aspect-square flex items-center justify-center border-2 border-dashed border-base-content/20 rounded-lg hover:border-primary cursor-pointer relative">
             <input
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               onChange={handleUpload}
               disabled={uploading}
               className="absolute inset-0 opacity-0 cursor-pointer"

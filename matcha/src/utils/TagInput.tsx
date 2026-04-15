@@ -6,12 +6,17 @@ interface TagsInputProps {
   editMode?: boolean;
 }
 
+const MAX_TAGS = 20;
+const MAX_TAG_LENGTH = 30;
+const tagRegex = /^[a-z0-9][a-z0-9_-]{0,29}$/;
+
 const TagsInput: React.FC<TagsInputProps> = ({
   interests,
   setInterests,
   editMode,
 }) => {
   const [input, setInput] = useState<string>("");
+  const [error, setError] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>): void => {
@@ -19,13 +24,34 @@ const TagsInput: React.FC<TagsInputProps> = ({
   };
 
   const addTag = (value: string): void => {
-    value = value.trim().replace(/^#/, "");
-    if (
-      value !== "" &&
-      !interests.some((tag) => tag.toLowerCase() === value.toLowerCase())
-    ) {
-      setInterests([...interests, value]);
+    const normalizedValue = value.trim().replace(/^#/, "").toLowerCase();
+
+    if (normalizedValue === "") {
+      return;
     }
+    if (interests.length >= MAX_TAGS) {
+      setError("You can add up to 20 interests.");
+      return;
+    }
+    if (normalizedValue.length > MAX_TAG_LENGTH) {
+      setError("Each interest must be at most 30 characters.");
+      return;
+    }
+    if (!tagRegex.test(normalizedValue)) {
+      setError(
+        "Use lowercase letters, numbers, underscores, or hyphens only.",
+      );
+      return;
+    }
+    if (
+      interests.some((tag) => tag.toLowerCase() === normalizedValue.toLowerCase())
+    ) {
+      setError("This interest already exists.");
+      return;
+    }
+
+    setInterests([...interests, normalizedValue]);
+    setError("");
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
@@ -75,13 +101,24 @@ const TagsInput: React.FC<TagsInputProps> = ({
         <input
           ref={inputRef}
           value={input}
-          onChange={handleInputChange}
+          onChange={(e) => {
+            setError("");
+            handleInputChange(e);
+          }}
           onKeyDown={handleKeyDown}
           placeholder={
             interests.length === 0 ? `Add interest and press Enter` : ""
           }
+          maxLength={MAX_TAG_LENGTH + 1}
           className="bg-transparent outline-none border-none text-sm flex-1 min-w-[100px] sticky top-0"
         />
+      </div>
+
+      <div className="mt-1 flex items-center justify-between text-xs">
+        <span className={error ? "text-error" : "text-neutral/70"}>
+          {error || "Up to 20 interests. Format: lowercase letters, numbers, _ or -."}
+        </span>
+        <span className="text-neutral/70">{interests.length}/{MAX_TAGS}</span>
       </div>
     </fieldset>
   );

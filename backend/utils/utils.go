@@ -7,9 +7,12 @@ import (
 	"errors"
 	"log"
 	"net/smtp"
+	"mime/multipart"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -278,3 +281,71 @@ func SendPasswordResetEmail(email, token, username string) error {
 	log.Printf("Password reset email sent successfully to: %s", email)
 	return nil
 }
+
+func ValidateEmail(email string) error {
+	const emailRegex = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	if !regexp.MustCompile(emailRegex).MatchString(email) {
+		return errors.New("Invalid email format")
+	}
+	return nil
+}
+
+func ValidateUsername(username string) error {
+	const usernameRegex = `^[A-Za-z][A-Za-z0-9\-]*$`
+	if len(username) < 3 || len(username) > 30 {
+		return errors.New("Username must be between 3 and 30 characters")
+	}
+	if !regexp.MustCompile(usernameRegex).MatchString(username) {
+		return errors.New("Username must start with a letter and contain only letters, numbers, or hyphens")
+	}
+	return nil
+}
+
+func ValidateName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return errors.New("Name cannot be empty")
+	}
+	return nil
+}
+
+func ValidateBirthdate(dateStr string) error {
+	if dateStr == "" {
+		return errors.New("Birthdate is required")
+	}
+	birthday, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return errors.New("Invalid date format, expected YYYY-MM-DD")
+	}
+	age := time.Since(birthday).Hours() / 24 / 365.25
+	if age < 18 {
+		return errors.New("You must be at least 18 years old")
+	}
+	return nil
+}
+
+func ValidateImage(file *multipart.FileHeader) error {
+	const MaxUploadSize = 5 * 1024 * 1024 // 5MB
+	if file.Size > MaxUploadSize {
+		return errors.New("Image exceeds the maximum size of 5MB")
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	buffer := make([]byte, 512)
+	_, err = src.Read(buffer)
+	if err != nil {
+		return err
+	}
+
+	contentType := http.DetectContentType(buffer)
+	if contentType != "image/jpeg" && contentType != "image/png" && contentType != "image/webp" {
+		return errors.New("Invalid file type. Only JPEG, PNG, and WebP are allowed")
+	}
+
+	return nil
+}
+

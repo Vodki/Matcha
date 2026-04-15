@@ -33,9 +33,21 @@ const PicturesPicker: React.FC<PicturesPickerProps> = ({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files).filter((file) =>
-        file.type.startsWith("image/")
-      );
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      const newFiles = Array.from(e.target.files).filter((file) => {
+        if (!allowedTypes.includes(file.type)) {
+          alert(`File ${file.name} is not a valid image format (JPEG, PNG, WebP).`);
+          return false;
+        }
+        if (file.size > maxSize) {
+          alert(`File ${file.name} exceeds the 5MB size limit.`);
+          return false;
+        }
+        return true;
+      });
+      
       setPictures((prev) => {
         const updated = [...prev, ...newFiles].slice(0, maxPictures);
         if (prev.length === 0 && updated.length > 0) setProfilePicIdx(0);

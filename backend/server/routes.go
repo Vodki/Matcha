@@ -7,7 +7,7 @@ import (
 )
 
 func RegisterRoutes(router *gin.Engine, db *sql.DB) {
-	StartHub()
+	StartHub(db)
 
 	router.GET("/ws", WebSocketHandler(db))
 

@@ -9,6 +9,8 @@ import random
 from faker import Faker
 from datetime import datetime, timedelta
 import bcrypt
+import unicodedata
+import re
 
 # Database configuration
 DB_CONFIG = {
@@ -24,6 +26,7 @@ fake = Faker(['fr_FR', 'en_US'])
 
 # Constants
 NUM_USERS = 500
+MAX_CREATION_ATTEMPTS = NUM_USERS * 10
 TAGS_LIST = [
     "travel", "cooking", "music", "sports", "reading", "movies", "photography",
     "gaming", "yoga", "hiking", "dancing", "art", "coding", "fitness", "fashion",
@@ -85,7 +88,14 @@ def create_user(index):
         first_name = fake.first_name_female()
     
     last_name = fake.last_name()
-    username = f"{first_name.lower()}{last_name.lower()}{index}".replace(" ", "").replace("'", "")
+    
+    raw_username = f"{first_name.lower()}{last_name.lower()}{index}"
+    nfkd_form = unicodedata.normalize('NFKD', raw_username)
+    username = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    username = re.sub(r'[^a-zA-Z0-9-]', '', username)
+    if not username[0].isalpha():
+        username = 'u' + username
+        
     email = f"{username}@matcha-test.com"
     
     # Password hash (password is "Password123!")
@@ -161,10 +171,13 @@ def populate_database():
         print(f"👥 Creating {NUM_USERS} users...")
         users_created = 0
         user_ids = []
-        
-        for i in range(1, NUM_USERS + 1):
+        attempts = 0
+
+        while users_created < NUM_USERS and attempts < MAX_CREATION_ATTEMPTS:
+            attempts += 1
             try:
-                user = create_user(i)
+                cur.execute("SAVEPOINT sp_create_user")
+                user = create_user(attempts)
                 
                 # Insert user
                 cur.execute("""
@@ -181,7 +194,6 @@ def populate_database():
                 ))
                 
                 user_id = cur.fetchone()[0]
-                user_ids.append(user_id)
                 
                 # Insert profile picture into user_images table
                 cur.execute("""
@@ -201,6 +213,9 @@ def populate_database():
                         INSERT INTO user_tags (user_id, tag_id)
                         SELECT %s, id FROM tags WHERE name = %s
                     """, (user_id, tag))
+
+                user_ids.append(user_id)
+                cur.execute("RELEASE SAVEPOINT sp_create_user")
                 
                 users_created += 1
                 
@@ -209,11 +224,19 @@ def populate_database():
                     conn.commit()
                 
             except Exception as e:
-                print(f"   ⚠️  Error creating user {i}: {e}")
-                conn.rollback()
+                print(f"   ⚠️  Error creating user at attempt {attempts}: {e}")
+                cur.execute("ROLLBACK TO SAVEPOINT sp_create_user")
+                cur.execute("RELEASE SAVEPOINT sp_create_user")
                 continue
-        
+
         conn.commit()
+
+        if users_created < NUM_USERS:
+            print(
+                f"❌ Could not create {NUM_USERS} users after {attempts} attempts "
+                f"(created {users_created})"
+            )
+            return False
         
         # Populate views and likes to set realistic fame ratings
         print("👁️  Generating realistic profile views and likes to establish fame ratings...")
@@ -223,12 +246,16 @@ def populate_database():
         for u_id in user_ids:
             # Each user receives between 10 and 100 views to build their fame
             total_receive_views = random.randint(10, 100)
+            candidates = [x for x in user_ids if x != u_id]
+            if not candidates:
+                continue
+            total_receive_views = min(total_receive_views, len(candidates))
             
             # They will get likes based on a random target rating
             target_rating = round(random.uniform(0.1, 0.9), 2)  # Between 10% and 90% fame
             total_receive_likes = int(total_receive_views * target_rating)
             
-            viewers = random.sample([x for x in user_ids if x != u_id], total_receive_views)
+            viewers = random.sample(candidates, total_receive_views)
             likers = random.sample(viewers, total_receive_likes) # Likers must be a subset of viewers
             
             # Insert views

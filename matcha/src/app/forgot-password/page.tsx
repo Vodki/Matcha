@@ -15,21 +15,23 @@ export default function ForgotPasswordPage() {
     setError('');
     setLoading(true);
 
-    if (!email) {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
       setError('Please enter your email address');
       setLoading(false);
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       setError('Please enter a valid email address');
       setLoading(false);
       return;
     }
 
     try {
-      const result = await api.requestPasswordReset(email);
+      const result = await api.requestPasswordReset(normalizedEmail);
 
       if (result.error) {
         setError(result.error);

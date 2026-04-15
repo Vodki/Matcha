@@ -15,6 +15,7 @@ func main() {
 	defer db.Close()
 
 	router := gin.Default()
+	router.Use(ResponseConsistencyMiddleware())
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},

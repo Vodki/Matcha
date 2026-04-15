@@ -173,36 +173,34 @@ export default function NotificationBell() {
                 };
 
                 const link = getNotificationLink();
-                const notifContent = (
-                  <>
+                return (
+                  <div
+                    key={notif.id}
+                    className={`p-3 rounded-md text-sm transition-all ${notif.is_read || notif.read ? "bg-base-200 opacity-70" : "bg-base-300 font-semibold"}`}
+                    onClick={() => handleMarkRead(notif.id)}
+                  >
                     <p>{notif.message}</p>
-                    {link && (
-                      <p className="text-secondary text-xs mt-1">
-                        {notif.type === "message" ? "Reply" : "View profile"}
-                      </p>
-                    )}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                      {link && (
+                        <Link
+                          href={link}
+                          className="text-secondary text-xs font-bold hover:underline"
+                        >
+                          {notif.type === "message" ? "Reply" : "View profile"}
+                        </Link>
+                      )}
+                      {notif.type === "match" && notif.source_id && (
+                        <Link
+                          href={`/home/chat/${notif.source_id}`}
+                          className="text-primary text-xs font-bold hover:underline"
+                        >
+                          Chat with this person
+                        </Link>
+                      )}
+                    </div>
                     <p className="text-xs text-right opacity-60 mt-1">
                       {new Date(notif.created_at).toLocaleString()}
                     </p>
-                  </>
-                );
-
-                return link ? (
-                  <Link
-                    key={notif.id}
-                    href={link}
-                    className={`block p-3 rounded-md text-sm cursor-pointer hover:ring-2 hover:ring-primary transition-all ${notif.is_read || notif.read ? "bg-base-200 opacity-70" : "bg-base-300 font-semibold"}`}
-                    onClick={() => handleMarkRead(notif.id)}
-                  >
-                    {notifContent}
-                  </Link>
-                ) : (
-                  <div
-                    key={notif.id}
-                    className={`p-3 rounded-md text-sm ${notif.is_read || notif.read ? "bg-base-200 opacity-70" : "bg-base-300 font-semibold"}`}
-                    onClick={() => handleMarkRead(notif.id)}
-                  >
-                    {notifContent}
                   </div>
                 );
               })

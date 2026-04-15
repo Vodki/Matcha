@@ -15,6 +15,7 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
 
   useEffect(() => {
     if (!token) {
@@ -33,8 +34,8 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters long');
+    if (!passwordRegex.test(password)) {
+      setError('Password must have 8+ chars, including uppercase, lowercase, and a digit');
       setLoading(false);
       return;
     }
@@ -132,7 +133,7 @@ function ResetPasswordForm() {
                 minLength={8}
               />
               <label className="label">
-                <span className="label-text-alt">Minimum 8 characters</span>
+                <span className="label-text-alt">8+ chars with uppercase, lowercase, and a digit</span>
               </label>
             </div>
 

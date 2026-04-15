@@ -9,6 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"matcha/utils"
 )
 
 func UploadImageHandler(db *sql.DB) gin.HandlerFunc {
@@ -34,6 +36,11 @@ func UploadImageHandler(db *sql.DB) gin.HandlerFunc {
 		file, err := c.FormFile("image")
 		if err != nil {
 			c.JSON(400, gin.H{"error": "Image file is required"})
+			return
+		}
+
+		if err := utils.ValidateImage(file); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
 

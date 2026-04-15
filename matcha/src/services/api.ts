@@ -1,6 +1,21 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080";
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+export function validateImageFile(file: File): string | null {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return "Invalid file type. Only JPEG, PNG, and WebP are allowed.";
+  }
+
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return "Image exceeds the maximum size of 5MB.";
+  }
+
+  return null;
+}
+
 export function getImageUrl(path: string | undefined): string {
   if (!path) return "";
   if (path.startsWith("http")) return path;
@@ -58,6 +73,33 @@ class ApiService {
     }
   }
 
+  private async requestForm<T = any>(
+    endpoint: string,
+    formData: URLSearchParams,
+  ): Promise<ApiResponse<T>> {
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { error: data.error || "Une erreur est survenue" };
+      }
+
+      return { data, message: data.message };
+    } catch (error) {
+      console.error("API form request failed:", error);
+      return { error: "Erreur de connexion au serveur" };
+    }
+  }
+
   async register(userData: {
     username: string;
     password: string;
@@ -70,23 +112,7 @@ class ApiService {
     Object.entries(userData).forEach(([key, value]) => {
       formData.append(key, value);
     });
-
-    const response = await fetch(`${this.baseUrl}/auth/register`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return { error: data.error || "Registration failed" };
-    }
-
-    return { message: data.message };
+    return this.requestForm("/auth/register", formData);
   }
 
   async login(credentials: {
@@ -96,23 +122,7 @@ class ApiService {
     const formData = new URLSearchParams();
     formData.append("username", credentials.username);
     formData.append("password", credentials.password);
-
-    const response = await fetch(`${this.baseUrl}/auth/login`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return { error: data.error || "Login failed" };
-    }
-
-    return { message: data.message };
+    return this.requestForm("/auth/login", formData);
   }
 
   async logout(): Promise<ApiResponse> {
@@ -130,23 +140,7 @@ class ApiService {
   async requestPasswordReset(email: string): Promise<ApiResponse> {
     const formData = new URLSearchParams();
     formData.append("email", email);
-
-    const response = await fetch(`${this.baseUrl}/auth/request-reset`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return { error: data.error || "Failed to request password reset" };
-    }
-
-    return { message: data.message };
+    return this.requestForm("/auth/request-reset", formData);
   }
 
   async resetPassword(
@@ -156,23 +150,7 @@ class ApiService {
     const formData = new URLSearchParams();
     formData.append("token", token);
     formData.append("password", newPassword);
-
-    const response = await fetch(`${this.baseUrl}/auth/reset-password`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return { error: data.error || "Failed to reset password" };
-    }
-
-    return { message: data.message };
+    return this.requestForm("/auth/reset-password", formData);
   }
 
   async getTags(): Promise<
@@ -524,6 +502,11 @@ class ApiService {
   }
 
   async uploadImage(file: File): Promise<ApiResponse> {
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      return { error: validationError };
+    }
+
     const formData = new FormData();
     formData.append("image", file);
 

@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import api from "../../services/api";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 
+const MAX_BIO_LENGTH = 500;
+
 export default function InformationsPage() {
   const router = useRouter();
   const { currentUser, loading: authLoading } = useCurrentUser();
@@ -50,7 +52,7 @@ export default function InformationsPage() {
     return null;
   }
 
-  const isAboutValid = about.trim().length > 0;
+  const isAboutValid = about.trim().length > 0 && about.trim().length <= MAX_BIO_LENGTH;
   const isInterestsValid = interests.length > 0;
   const isPicturesValid = pictures.length > 0;
   const hasLocation =
@@ -156,9 +158,9 @@ export default function InformationsPage() {
       for (let i = 0; i < pictures.length; i++) {
         const uploadResult = await api.uploadImage(pictures[i]);
         if (uploadResult.error) {
-          console.error("Error uploading image:", uploadResult.error);
-        } else if (i === profilePicIdx && uploadResult.data?.image_id) {
-          await api.setProfilePicture(uploadResult.data.image_id);
+          setSubmitError(uploadResult.error);
+          setIsSubmitting(false);
+          return;
         }
       }
 
@@ -218,7 +220,11 @@ export default function InformationsPage() {
               placeholder="Write something about yourself..."
               value={about}
               onChange={(e) => setAbout(e.target.value)}
+              maxLength={MAX_BIO_LENGTH}
             />
+            <div className="mt-1 text-right text-xs text-neutral/70">
+              {about.length}/{MAX_BIO_LENGTH}
+            </div>
           </fieldset>
 
           <TagsInput interests={interests} setInterests={setInterests} />

@@ -334,6 +334,7 @@ class ApiService {
     minAge?: number;
     maxAge?: number;
     minFame?: number;
+    maxFame?: number;
     maxDistance?: number;
     tags?: string[];
   }): Promise<
@@ -366,6 +367,8 @@ class ApiService {
         params.append("maxAge", filters.maxAge.toString());
       if (filters.minFame !== undefined)
         params.append("minFame", filters.minFame.toString());
+      if (filters.maxFame !== undefined)
+        params.append("maxFame", filters.maxFame.toString());
       if (filters.maxDistance !== undefined)
         params.append("maxDistance", filters.maxDistance.toString());
       if (filters.tags && filters.tags.length > 0)

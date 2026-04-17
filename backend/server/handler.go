@@ -1824,6 +1824,7 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 		minAgeStr := c.DefaultQuery("minAge", "")
 		maxAgeStr := c.DefaultQuery("maxAge", "")
 		minFameStr := c.DefaultQuery("minFame", "")
+		maxFameStr := c.DefaultQuery("maxFame", "")
 		maxDistanceStr := c.DefaultQuery("maxDistance", "")
 		tagsStr := c.DefaultQuery("tags", "")
 
@@ -1893,6 +1894,14 @@ func GetSuggestionsHandler(db *sql.DB) gin.HandlerFunc {
 				args = append(args, v)
 				famePlaceholder := "$" + strconv.Itoa(len(args))
 				additionalFilters = append(additionalFilters, "u.fame_rating >= "+famePlaceholder)
+			}
+		}
+
+		if maxFameStr != "" {
+			if v, err := strconv.ParseFloat(maxFameStr, 64); err == nil {
+				args = append(args, v)
+				famePlaceholder := "$" + strconv.Itoa(len(args))
+				additionalFilters = append(additionalFilters, "u.fame_rating <= "+famePlaceholder)
 			}
 		}
 

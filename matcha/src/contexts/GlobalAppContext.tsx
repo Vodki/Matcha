@@ -1,7 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, ReactNode } from "react";
-import { exampleProfiles } from "../components/dataExample/profile.example";
 import { Profile } from "../types/profile";
 
 type User = Profile & { isOnline: boolean; lastSeen: Date | null };
@@ -38,12 +37,6 @@ interface IGlobalState {
   notifications: Notification[];
 }
 
-const allUsers: User[] = exampleProfiles.map((p, i) => ({
-  ...p,
-  isOnline: i % 3 === 0,
-  lastSeen: new Date(Date.now() - i * 1000 * 60 * 60 * (24 + i)),
-}));
-
 const initialState: IGlobalState = {
   currentUser: {
     id: "me",
@@ -61,7 +54,7 @@ const initialState: IGlobalState = {
     isOnline: true,
     lastSeen: null,
   },
-  users: allUsers.filter((u) => u.id !== "me"),
+  users: [],
   likes: [{ likerId: "user2", likedId: "me" }],
   blockedUserIds: [],
   visitHistory: [],

@@ -15,12 +15,12 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    profiles: [dev, prod]
+
 
   backend:
     build:
       context: ./backend
-      target: ${BACKEND_TARGET:-dev}
+      target: dev
     container_name: matcha_backend
     environment:
       DB_STRING: postgres://${POSTGRES_USER:-matcha}:${POSTGRES_PASSWORD:-matcha}@db:5432/${POSTGRES_DB:-matcha}?sslmode=disable
@@ -32,22 +32,6 @@ services:
       - "8080:8080"
     volumes:
       - ./backend:/app
-    profiles: [dev]
-
-  backend_prod:
-    build:
-      context: ./backend
-      target: prod
-    container_name: matcha_backend_prod
-    environment:
-      DB_STRING: postgres://${POSTGRES_USER:-matcha}:${POSTGRES_PASSWORD:-matcha}@db:5432/${POSTGRES_DB:-matcha}?sslmode=disable
-      GMAIL_PASS: ${GMAIL_PASS}
-    depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "8080:8080"
-    profiles: [prod]
 
   frontend:
     build:
@@ -64,20 +48,6 @@ services:
       - ./matcha:/app
       - frontend_node_modules:/app/node_modules
       - /app/.next
-    profiles: [dev]
-
-  frontend_prod:
-    build:
-      context: ./matcha
-      target: prod
-    container_name: matcha_frontend_prod
-    environment:
-      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8080}
-    depends_on:
-      - backend_prod
-    ports:
-      - "3000:3000"
-    profiles: [prod]
 
 volumes:
   db_data:

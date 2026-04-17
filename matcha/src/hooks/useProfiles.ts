@@ -7,6 +7,7 @@ export function useProfiles(filters?: {
   minAge?: number;
   maxAge?: number;
   minFame?: number;
+  maxFame?: number;
   maxDistance?: number;
   tags?: string[];
 }) {

@@ -39,13 +39,18 @@ export default function ChatPage() {
   const fetchMessages = useCallback(async () => {
     try {
       const msgRes = await api.getChatHistory(chatPartnerId);
+      if (msgRes.error) {
+        router.replace("/home");
+        return;
+      }
       if (msgRes.data?.messages) {
         setMessages(msgRes.data.messages);
       }
     } catch (err) {
       console.error("Error fetching messages", err);
+      router.replace("/home");
     }
-  }, [chatPartnerId]);
+  }, [chatPartnerId, router]);
 
   useEffect(() => {
     let isMounted = true;

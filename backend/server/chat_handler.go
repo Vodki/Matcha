@@ -121,6 +121,19 @@ func GetChatHistoryHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		var mutualLike bool
+		err = db.QueryRow(`
+			SELECT EXISTS(
+				SELECT 1 FROM profile_likes WHERE liker_id = $1 AND liked_id = $2
+			) AND EXISTS(
+				SELECT 1 FROM profile_likes WHERE liker_id = $2 AND liked_id = $1
+			)
+		`, currentUserID, otherUserID).Scan(&mutualLike)
+		if err != nil || !mutualLike {
+			c.JSON(403, gin.H{"error": "You must be connected (mutual like) to view this chat"})
+			return
+		}
+
 		rows, err := db.Query(`
 			SELECT id, sender_id, receiver_id, content, created_at, read_at
 			FROM messages

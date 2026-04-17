@@ -20,111 +20,18 @@ export default function RootLayout({
       <section className="w-full min-h-screen pt-16 pb-20 lg:pb-0 bg-gradient-valentine">
         <div className="fixed inset-x-0 top-0 z-50 navbar glass shadow-md border-b border-white/20 px-4">
           <div className="navbar-start">
-            <div className="dropdown dropdown-start lg:hidden">
-              <div
-                tabIndex={0}
-                role="button"
-                className="btn btn-ghost btn-circle hover:bg-primary/10 transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M4 6h16M4 12h16M4 18h7"
-                  />
-                </svg>
-              </div>
-
-              <ul
-                tabIndex={0}
-                className="dropdown-content menu glass rounded-3xl z-50 w-64 p-3 shadow-2xl border border-white/20 mt-2"
-              >
-                <li className="menu-title opacity-50 px-4 py-2">Menu</li>
-                <li>
-                  <Link
-                    href="/home"
-                    className="flex items-center gap-3 py-4 rounded-2xl active:bg-primary"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                      />
-                    </svg>
-                    Home
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/home/profile"
-                    className="flex items-center gap-3 py-4 rounded-2xl active:bg-primary"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
-                    </svg>
-                    Profile
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/home/chat"
-                    className="flex items-center gap-3 py-4 rounded-2xl active:bg-primary"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                      />
-                    </svg>
-                    Messages
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
             <Link
               href="/home"
-              className="flex items-center gap-2 hover:opacity-80 transition-all group ml-2 lg:ml-0"
+              className="flex items-center gap-2 hover:opacity-80 transition-all group"
             >
               <Image
                 src="/tea-cup.svg"
                 alt="Matcha Logo"
                 width={28}
                 height={28}
-                className="w-7 h-7 group-hover:scale-110 transition-transform"
+                className="w-7 h-7 group-hover:scale-110 transition-transform -translate-y-1"
               />
-              <span className="text-2xl font-black bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent group-hover:scale-105 transition-transform">
+              <span className="text-2xl font-black leading-none bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent group-hover:scale-105 transition-transform">
                 Matcha
               </span>
             </Link>
@@ -162,10 +69,10 @@ export default function RootLayout({
             </ul>
           </div>
 
-          <div className="navbar-end gap-3">
-            <NotificationBell />
-            <div className="divider divider-horizontal mx-0 hidden sm:flex opacity-20"></div>
+          <div className="navbar-end gap-1 sm:gap-3">
             <LogoutButton />
+            <div className="divider divider-horizontal mx-0 hidden sm:flex opacity-20"></div>
+            <NotificationBell />
           </div>
         </div>
 

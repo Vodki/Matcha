@@ -126,7 +126,7 @@ func SendVerificationEmail(email string, db *sql.DB) {
                 <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">
                     <!-- Header -->
                     <tr>
-                        <td style="background: linear-gradient(135deg, #ec4899 0%, #f472b6 50%, #a855f7 100%); padding: 40px 30px; text-align: center; border-radius: 16px 16px 0 0;">
+                        <td style="background-color: #ec4899; background: linear-gradient(135deg, #ec4899 0%, #f472b6 50%, #a855f7 100%); padding: 40px 30px; text-align: center; border-radius: 16px 16px 0 0;">
                             <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold;">Matcha</h1>
                             <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Find your perfect match</p>
                         </td>
@@ -145,7 +145,7 @@ func SendVerificationEmail(email string, db *sql.DB) {
                             <table role="presentation" style="width: 100%; border-collapse: collapse;">
                                 <tr>
                                     <td align="center">
-                                        <a href="` + verifyLink + `" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #a855f7); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 30px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">
+                                        <a href="` + verifyLink + `" style="display: inline-block; background-color: #ec4899; background: linear-gradient(135deg, #ec4899, #a855f7); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 30px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">
                                             ✓ Verify my email
                                         </a>
                                     </td>
@@ -213,7 +213,7 @@ func SendPasswordResetEmail(email, token, username string) error {
                 <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">
                     <!-- Header -->
                     <tr>
-                        <td style="background: linear-gradient(135deg, #ec4899 0%, #f472b6 50%, #a855f7 100%); padding: 40px 30px; text-align: center; border-radius: 16px 16px 0 0;">
+                        <td style="background-color: #ec4899; background: linear-gradient(135deg, #ec4899 0%, #f472b6 50%, #a855f7 100%); padding: 40px 30px; text-align: center; border-radius: 16px 16px 0 0;">
                             <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold;">Matcha</h1>
                             <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Password Reset</p>
                         </td>
@@ -232,7 +232,7 @@ func SendPasswordResetEmail(email, token, username string) error {
                             <table role="presentation" style="width: 100%; border-collapse: collapse;">
                                 <tr>
                                     <td align="center">
-                                        <a href="` + resetLink + `" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #a855f7); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 30px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">
+                                        <a href="` + resetLink + `" style="display: inline-block; background-color: #ec4899; background: linear-gradient(135deg, #ec4899, #a855f7); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 30px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">
                                             Reset my password
                                         </a>
                                     </td>

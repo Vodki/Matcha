@@ -144,7 +144,7 @@ export default function NotificationBell() {
       </button>
       <div
         tabIndex={0}
-        className="mt-3 z-[1] card card-compact dropdown-content w-80 bg-base-100 shadow-xl max-h-96 overflow-y-auto"
+        className="mt-3 z-[1] card card-compact dropdown-content w-80 max-w-[calc(100vw-1rem)] bg-base-100 shadow-xl max-h-96 overflow-y-auto"
       >
         <div className="card-body">
           <span className="font-bold text-lg">

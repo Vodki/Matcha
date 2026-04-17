@@ -1,5 +1,10 @@
 import "../styles/globals.css";
 import { GlobalAppContextProvider } from "@/contexts/GlobalAppContext";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  icons: { icon: "/tea-cup.svg" },
+};
 
 export default function RootLayout({
   children,

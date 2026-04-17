@@ -79,16 +79,18 @@ export default function ImageManager({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="card bg-base-100 shadow-xl p-6">
-      <h3 className="text-lg font-bold mb-4">Photos ({images.length}/5)</h3>
+    <div className="w-full">
+      <p className="text-xs font-semibold text-base-content/50 mb-2">
+        Photos ({images.length}/5)
+      </p>
 
       {errorMessage && (
-        <div className="alert alert-error mb-4">
+        <div className="alert alert-error mb-3 text-xs">
           <span>{errorMessage}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-3 gap-2 mb-2">
         {images.map((img) => (
           <div key={img.id} className="relative group aspect-square">
             <img
@@ -142,7 +144,7 @@ export default function ImageManager({ userId }: { userId: string }) {
             />
             <div className="text-center">
               {uploading ? (
-                <span className="loading loading-spinner"></span>
+                <span className="loading loading-spinner loading-sm"></span>
               ) : (
                 <>
                   <svg
@@ -151,7 +153,7 @@ export default function ImageManager({ userId }: { userId: string }) {
                     viewBox="0 0 24 24"
                     strokeWidth={1.5}
                     stroke="currentColor"
-                    className="w-8 h-8 mx-auto mb-1"
+                    className="w-5 h-5 mx-auto mb-1"
                   >
                     <path
                       strokeLinecap="round"
@@ -159,7 +161,7 @@ export default function ImageManager({ userId }: { userId: string }) {
                       d="M12 4.5v15m7.5-7.5h-15"
                     />
                   </svg>
-                  <span className="text-sm">Add Photo</span>
+                  <span className="text-xs">Add</span>
                 </>
               )}
             </div>
@@ -169,3 +171,4 @@ export default function ImageManager({ userId }: { userId: string }) {
     </div>
   );
 }
+

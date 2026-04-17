@@ -155,7 +155,7 @@ export default function RegistrationPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="glass rounded-3xl shadow-xl w-full px-6 py-8 flex flex-col gap-5 animate-slide-up animate-delay-300 card-hover"
+          className="glass rounded-3xl shadow-xl w-full px-6 py-8 flex flex-col gap-5 animate-slide-up animate-delay-300 card-hover relative z-10"
         >
           {errorMessage && (
             <div className="alert alert-error rounded-2xl shadow-md animate-fade-in">
@@ -358,7 +358,7 @@ export default function RegistrationPage() {
           </p>
         </form>
 
-        <p className="text-xs text-neutral/50 text-center max-w-sm animate-slide-up animate-delay-400">
+        <p className="text-xs text-neutral/50 text-center max-w-sm animate-slide-up animate-delay-400 relative z-0">
           By creating an account, you agree to our Terms of Service and Privacy
           Policy
         </p>
